@@ -156,7 +156,7 @@ def extract_text_from_output(output_data):
     return None
 
 # --- Helper Function to Call OpenAI --- -
-async def call_openai_api(user_prompt: str, config_page_instruction: str, custom_instruction: str | None):
+async def call_openai_api(user_prompt: str, config_page_instruction: str, custom_instruction: str | None, request_type: str = "outline"):
     print(f"[OPENAI] Starting API call with prompt: {user_prompt[:100]}... (truncated)")
     
     if not OPENAI_API_KEY or OPENAI_API_KEY == "YOUR_OPENAI_API_KEY_HERE":
@@ -173,50 +173,93 @@ async def call_openai_api(user_prompt: str, config_page_instruction: str, custom
     instruction = config_page_instruction
     print(f"[OPENAI] Using instruction: {instruction[:150]}... (truncated)")
     
-    # Ignore the custom_instruction parameter entirely as requested
+    # Set model based on request type
+    model = "gpt-4o" if request_type == "outline" else "gpt-4.5-preview"
+    print("............................................................")
+    print(f"[OPENAI] Using model: {model} for {request_type} request")
+    print("............................................................")
+    
+    # Create different request body based on request type
+    if request_type == "outline":
 
-    request_body = {
-        "model": "gpt-4o",
-        "input": [
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": instruction
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": user_prompt
-                    }
-                ]
-            }
-        ],
-        "text": {
-            "format": {
-                "type": "text"
-            }
-        },
-        "reasoning": {},
-        "tools": [
-            {
-                "type": "web_search_preview",
-                "user_location": {
-                    "type": "approximate"
+        request_body = {
+            "model": model,
+            "input": [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": instruction
+                        }
+                    ]
                 },
-                "search_context_size": "medium"
-            }
-        ],
-        "temperature": 1,
-        "max_output_tokens": 2048,
-        "top_p": 1,
-        "store": True
-    }
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": user_prompt
+                        }
+                    ]
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "text"
+                }
+            },
+            "reasoning": {},
+            "tools": [
+                {
+                    "type": "web_search_preview",
+                    "user_location": {
+                        "type": "approximate"
+                    },
+                    "search_context_size": "medium"
+                }
+            ],
+            "temperature": 1,
+            "max_output_tokens": 2048,
+            "top_p": 1,
+            "store": True
+        }
+    else:  # optimize case
+        request_body = {
+            "model": model,
+            "input": [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": instruction
+                        }
+                    ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": user_prompt
+                        }
+                    ]
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "text"
+                }
+            },
+            "reasoning": {},
+            "tools": [],
+            "temperature": 1,
+            "max_output_tokens": 2048,
+            "top_p": 1,
+            "store": True
+        }
+    
     print("[OPENAI] Request body created")
     
     # Print summarized version of request for debugging
@@ -326,7 +369,8 @@ async def generate_outline_endpoint(request: OutlineRequest):
     generated_text = await call_openai_api(
         user_prompt,
         request.base_system_instruction,  # ConfigPage instruction
-        None  # Ignore custom instruction
+        None,  # Ignore custom instruction
+        "outline"  # Specify request type
     )
     print(f"[ENDPOINT] OpenAI API returned {len(generated_text)} characters")
     print("[ENDPOINT] Returning outline to frontend")
@@ -363,7 +407,8 @@ async def optimize_content_endpoint(request: OptimizeRequest):
     generated_text = await call_openai_api(
         user_prompt,
         request.base_system_instruction,  # ConfigPage instruction
-        None  # Ignore custom instruction
+        None,  # Ignore custom instruction
+        "optimize"  # Specify request type
     )
     print(f"[ENDPOINT] OpenAI API returned {len(generated_text)} characters")
     print("[ENDPOINT] Returning optimized content to frontend")
