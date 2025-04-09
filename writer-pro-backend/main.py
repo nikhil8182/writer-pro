@@ -316,13 +316,8 @@ async def generate_outline_endpoint(request: OutlineRequest):
     config_instruction_length = len(request.base_system_instruction)
     print(f"[ENDPOINT] ConfigPage instruction length: {config_instruction_length}")
     
-    # Create user prompt with proper formatting
-    user_prompt = ""
-    if request.contentType:
-        user_prompt = f"Generate a detailed content outline in Markdown format for a '{request.contentType}' post about: \"{request.contentDescription}\"."
-    else:
-        user_prompt = f"Generate a detailed content outline in Markdown format based on the following description: \"{request.contentDescription}\"."
-    user_prompt += '\nInclude appropriate sections with bullet points (- ). Use # for title and ## for sections.'
+    # Use the exact content description as the user prompt - no changes or formatting
+    user_prompt = request.contentDescription 
     
     print(f"[ENDPOINT] Created user prompt: {user_prompt[:100]}... (truncated)")
 
