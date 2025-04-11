@@ -1093,7 +1093,7 @@ input:checked + .slider:before {
   font-weight: 500;
 }
 
-/* Other Platforms Section in Step 3 */
+/* Other Platforms Section in Step 3 - Enhanced */
 .other-platforms-section {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
@@ -1101,21 +1101,35 @@ input:checked + .slider:before {
   background-color: var(--bg-subtle);
   border-radius: 12px;
   border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+.other-platforms-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
 }
 
 .other-platforms-section h3 {
   font-size: 16px;
   font-weight: 600;
-  margin-top: 0;
-  margin-bottom: 15px;
+  margin: 0;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.other-platforms-section h3::before {
+  content: "✨";
+  font-size: 18px;
 }
 
 .other-platforms-section .platform-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
-  justify-content: flex-start;
   margin-top: 15px;
 }
 
@@ -1136,14 +1150,46 @@ input:checked + .slider:before {
   gap: 12px;
 }
 
+.other-platforms-section .platform-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary-color-light);
+}
+
 .other-platforms-section .platform-icon {
   font-size: 24px;
   margin-bottom: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.other-platforms-section .platform-card:hover .platform-icon {
+  transform: scale(1.1);
+  background-color: rgba(99, 102, 241, 0.2);
 }
 
 .other-platforms-section .platform-name {
   font-size: 14px;
   font-weight: 500;
+  flex: 1;
+}
+
+.other-platforms-section .platform-action {
+  font-size: 13px;
+  color: var(--primary-color);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.other-platforms-section .platform-card:hover .platform-action {
+  opacity: 1;
 }
 
 /* Optimized badge for platforms already optimized */
@@ -1153,18 +1199,41 @@ input:checked + .slider:before {
   box-shadow: 0 0 0 1px var(--primary-color-light);
 }
 
+.platform-card.optimized .platform-icon {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+.platform-card.optimized .platform-action {
+  color: var(--success-color);
+}
+
+/* Error state for platform cards */
+.platform-card.error {
+  border-color: var(--error-color);
+  background-color: rgba(229, 57, 53, 0.05);
+}
+
+.platform-card.error .platform-icon {
+  background-color: rgba(229, 57, 53, 0.2);
+}
+
+.platform-card.error .platform-action {
+  color: var(--error-color);
+  opacity: 1;
+}
+
 /* Loading state for platform cards */
 .platform-card.loading {
   cursor: progress;
-  opacity: 0.7;
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: var(--bg-loading);
+  pointer-events: none;
 }
 
 .platform-card .loading-spinner.dark {
   width: 24px;
   height: 24px;
-  border: 3px solid rgba(0, 0, 0, 0.2);
-  border-top-color: var(--text-primary);
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--primary-color);
   margin: 0;
 }
 
@@ -1172,9 +1241,9 @@ input:checked + .slider:before {
 .optimized-results-section {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .optimized-result-card {
@@ -1185,12 +1254,16 @@ input:checked + .slider:before {
   transition: all 0.3s ease;
   box-shadow: var(--card-shadow);
   position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .optimized-result-card:hover,
 .main-editor-container:hover {
   box-shadow: var(--card-shadow-hover);
   border-color: var(--primary-color-light);
+  transform: translateY(-2px);
 }
 
 .result-header {
@@ -1212,6 +1285,12 @@ input:checked + .slider:before {
   gap: 8px;
 }
 
+.result-header .small-button {
+  padding: 6px 12px;
+  font-size: 13px;
+  min-width: auto;
+}
+
 .result-content {
   font-size: 14px;
   line-height: 1.6;
@@ -1219,6 +1298,8 @@ input:checked + .slider:before {
   max-height: 250px;
   overflow-y: auto;
   padding-right: 10px;
+  flex: 1;
+  margin-bottom: 15px;
 }
 
 .optimized-result-card.error {
@@ -1232,6 +1313,23 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Optimized badge for result cards */
+.optimized-result-card .optimized-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  background-color: var(--success-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 /* Platform switching indicator */

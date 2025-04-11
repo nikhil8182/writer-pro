@@ -527,7 +527,30 @@ function App() {
             </div>
             
             <div className="other-platforms-section">
-              <h3>Also optimize for:</h3>
+              <div className="section-header">
+                <h3>Also optimize for:</h3>
+                {Object.keys(optimizedContentMap).length > 1 && (
+                  <button 
+                    className="action-button secondary small-button"
+                    onClick={() => {
+                      // Combine all optimized contents
+                      const allContent = Object.entries(optimizedContentMap)
+                        .filter(([platform, data]) => data && !data.isLoading && data.content && !data.error)
+                        .map(([platform, data]) => {
+                          const platformInfo = platformOptions.find(p => p.id === platform);
+                          return `## ${platformInfo?.icon || ''} ${platformInfo?.label || platform} Content\n\n${data.content}\n\n`;
+                        })
+                        .join('---\n\n');
+                      
+                      if (allContent) {
+                        copyToClipboard(allContent);
+                      }
+                    }}
+                  >
+                    Copy All
+                  </button>
+                )}
+              </div>
               <div className="platform-grid">
                 {platformOptions
                   .filter(platform => platform.id !== currentPlatform)
@@ -550,12 +573,17 @@ function App() {
                       >
                         {isLoading ? (
                           <div className="loading-spinner dark"></div>
-                        ) : hasError ? (
-                          <div className="platform-icon">⚠️</div>
                         ) : (
-                          <div className="platform-icon">{platform.icon}</div>
+                          <div className="platform-icon">
+                            {hasError ? '⚠️' : platform.icon}
+                          </div>
                         )}
                         <div className="platform-name">{platform.label}</div>
+                        <div className="platform-action">
+                          {isLoading ? 'Optimizing...' :
+                           hasError ? 'Retry' :
+                           isOptimized ? 'Optimized' : 'Optimize'}
+                        </div>
                         {isOptimized && !isLoading && !hasError && (
                           <div className="optimized-badge" title="Optimized">✓</div>
                         )}
