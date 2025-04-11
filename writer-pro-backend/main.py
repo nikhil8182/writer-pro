@@ -10,7 +10,7 @@ print("[STARTUP] Writer Pro Backend starting...")
 print(f"[STARTUP] OpenAI API Key present: {bool(config.OPENAI_API_KEY)}")
 
 app = FastAPI()
-
+#version check = v1
 # --- CORS Configuration --- - Allow requests from React frontend
 app.add_middleware(
     CORSMiddleware,
