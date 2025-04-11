@@ -53,6 +53,40 @@ The project consists of two main components:
    npm start
    ```
 
+## Git Workflow
+
+Both frontend and backend code are now managed in a single repository. Follow these steps to properly commit and push changes:
+
+1. **Always make changes from the root directory:**
+   ```bash
+   cd /path/to/writer-pro  # Navigate to root directory
+   ```
+
+2. **Add changes from both components:**
+   ```bash
+   # Add specific files
+   git add writer-pro/src/components/YourComponent.js
+   git add writer-pro-backend/routes/your_route.py
+   
+   # Or add all changes in a directory
+   git add writer-pro/
+   git add writer-pro-backend/
+   ```
+
+3. **Commit with a descriptive message:**
+   ```bash
+   git commit -m "Add feature X to frontend and update backend endpoint Y"
+   ```
+
+4. **Push to the repository:**
+   ```bash
+   git push origin main
+   ```
+
+5. **Important: Never push separate repositories:**
+   - Both frontend and backend should always be pushed together to maintain synchronization
+   - If you need to make changes to only one component, still push from the root repository
+
 ## Features
 
 - Content outline generation
