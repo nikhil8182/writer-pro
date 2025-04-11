@@ -534,12 +534,28 @@ function App() {
             )}
             
             {!isPlatformSwitching && (
-              <div className="editor-container">
-                <EditorWithProtection
-                  platform={currentPlatform}
-                  content={mainEditorContent}
-                  onChange={handleMainEditorContentChange}
-                />
+              <div className="main-editor-container">
+                <div className="main-editor-header">
+                  <h3>
+                    {platformOptions.find(p => p.id === currentPlatform)?.icon} 
+                    {platformOptions.find(p => p.id === currentPlatform)?.label} Content
+                  </h3>
+                  <button 
+                    className="action-button secondary small-button"
+                    onClick={() => copyToClipboard(mainEditorContent)}
+                    disabled={!mainEditorContent}
+                  >
+                    {copySuccess ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                
+                <div className="main-editor-content">
+                  <EditorWithProtection
+                    platform={currentPlatform}
+                    content={mainEditorContent}
+                    onChange={handleMainEditorContentChange}
+                  />
+                </div>
               </div>
             )}
             
@@ -549,14 +565,6 @@ function App() {
                 onClick={handleBackToStep2}
               >
                 Back
-              </button>
-              
-              <button 
-                className="action-button primary" 
-                onClick={() => copyToClipboard(mainEditorContent)}
-                disabled={!mainEditorContent || isPlatformSwitching}
-              >
-                {copySuccess ? 'Copied!' : 'Copy Content'}
               </button>
             </div>
             

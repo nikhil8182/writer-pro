@@ -859,16 +859,28 @@ input:checked + .slider:before {
 }
 
 .action-button.secondary {
-  background-color: transparent;
-  color: var(--primary-color);
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .action-button.secondary:hover {
-  background-color: rgba(99, 102, 241, 0.05);
-  border-color: var(--primary-color);
-  transform: translateY(-2px);
+  background-color: var(--bg-hover);
+  border-color: var(--light-gray);
+  color: var(--text-primary);
+}
+
+/* Small button style */
+.action-button.small-button {
+  padding: 6px 12px;
+  font-size: 13px;
+  min-height: 32px;
+  min-width: auto;
+  border-radius: 6px;
+}
+
+.action-button.small-button:hover {
+  transform: translateY(-1px);
 }
 
 /* Loading spinner */
@@ -1231,6 +1243,81 @@ input:checked + .slider:before {
 .error-text {
   color: var(--danger-color);
   font-weight: 500;
+}
+
+/* Main Editor Container Enhancements */
+.main-editor-container {
+  background-color: var(--bg-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  box-shadow: var(--card-shadow);
+  position: relative;
+}
+
+.main-editor-container:hover {
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--primary-color-light);
+}
+
+.main-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.main-editor-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.main-editor-content {
+  margin-bottom: 15px;
+}
+
+/* Enhanced focus for the main editor */
+.main-editor-container .editor-container {
+  margin-top: 0;
+}
+
+.main-editor-container .editor-main {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.main-editor-container .editor-textarea {
+  min-height: 250px;
+  border-radius: 8px;
+  padding: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.main-editor-container .editor-textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+.editor-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 /* Optimize page specific styles */
