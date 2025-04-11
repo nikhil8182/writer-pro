@@ -1,30 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './Editor.css';
 import OpenAIService from '../services/openai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// Helper function to debounce updates
+function useDebounce(callback, delay) {
+  const timeoutRef = useRef(null);
+  
+  return useCallback((...args) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]);
+}
 
 function Editor({ 
   platform = 'default', 
   contentDescription = '',
   contentType = '',
   value = '',
-  onContentChange = () => {}
+  onContentChange = () => {},
+  initialContent = '',
+  onChange = null,
+  placeholder = ''
 }) {
-  const [charCount, setCharCount] = useState(value.length);
+  const isFirstRender = useRef(true);
+  const contentWasUpdatedFromProps = useRef(false);
+  
+  const [content, setContent] = useState(initialContent || value || '');
+  const [charCount, setCharCount] = useState((initialContent || value || '').length);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState('');
   
+  const notifyParent = useCallback((newContent) => {
+    if (onChange) onChange(newContent);
+    onContentChange(newContent);
+  }, [onChange, onContentChange]);
+  
+  const debouncedNotifyParent = useDebounce(notifyParent, 300);
+  
   useEffect(() => {
-    setCharCount(value.length);
-  }, [value]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
+    const newContent = initialContent || value || '';
+    if (newContent !== content) {
+      console.log("Updating editor content from props");
+      contentWasUpdatedFromProps.current = true;
+      setContent(newContent);
+      setCharCount(newContent.length);
+    }
+  }, [initialContent, value, content]);
 
   const handleContentChange = (e) => {
     const newContent = e.target.value;
+    
+    setContent(newContent);
     setCharCount(newContent.length);
-    onContentChange(newContent);
+    
+    if (!contentWasUpdatedFromProps.current) {
+      debouncedNotifyParent(newContent);
+    } else {
+      contentWasUpdatedFromProps.current = false;
+    }
   };
   
   const platformLimits = OpenAIService.PLATFORM_LIMITS;
@@ -90,12 +137,12 @@ function Editor({
   };
 
   const requestAISuggestion = async () => {
-    if (!value) return;
+    if (!content) return;
     
     setShowAIAssistant(true);
     setIsGeneratingAI(true);
     try {
-      const suggestion = await OpenAIService.getSuggestion(value, platform);
+      const suggestion = await OpenAIService.getSuggestion(content, platform);
       setAiSuggestion(suggestion);
     } catch (error) {
       console.error("Error getting AI suggestion:", error);
@@ -107,7 +154,10 @@ function Editor({
 
   const applyAISuggestion = () => {
     if (aiSuggestion) {
+      setContent(aiSuggestion);
+      if (onChange) onChange(aiSuggestion);
       onContentChange(aiSuggestion);
+      
       setShowAIAssistant(false);
       setAiSuggestion('');
     }
@@ -138,7 +188,7 @@ function Editor({
           <button
             className="ai-assist-btn"
             onClick={requestAISuggestion}
-            disabled={!value || isGeneratingAI}
+            disabled={!content || isGeneratingAI}
             title="Get AI suggestions to improve your content">
             {isGeneratingAI ? (
               <><span className="loading-spinner dark"></span> Improving...</>
@@ -159,15 +209,15 @@ function Editor({
         {isPreviewMode ? (
           <div className="markdown-preview">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {value}
+              {content}
             </ReactMarkdown>
           </div>
         ) : (
           <div className="editor-textarea-container">
             <textarea 
-              value={value}
+              value={content}
               onChange={handleContentChange}
-              placeholder={`Write your optimized ${platform} content here...`}
+              placeholder={placeholder || `Write your optimized ${platform} content here...`}
               className="editor-textarea"
             ></textarea>
             <div className={`char-counter-inline ${getCharCounterClass()}`}>

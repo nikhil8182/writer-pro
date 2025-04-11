@@ -136,91 +136,28 @@ async def call_openai_api(user_prompt: str, config_page_instruction: str, custom
     print(f"[OPENAI] Using model: {model} for {request_type} request")
     print("............................................................")
 
-    # Create different request body based on request type
-    if request_type == "outline":
-
-        request_body = {
-            "model": model,
-            "input": [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": instruction
-                        }
-                    ]
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": user_prompt
-                        }
-                    ]
-                }
-            ],
-            "text": {
-                "format": {
-                    "type": "text"
-                }
+    # Create a simpler request body structure that works with current API
+    request_body = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": instruction
             },
-            "reasoning": {},
-            "tools": [
-                {
-                    "type": "web_search_preview",
-                    "user_location": {
-                        "type": "approximate"
-                    },
-                    "search_context_size": "medium"
-                }
-            ],
-            "temperature": 1,
-            "max_output_tokens": 2048,
-            "top_p": 1,
-            "store": True
-        }
-    else:  # optimize case
-        request_body = {
-            "model": model,
-            "input": [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": instruction
-                        }
-                    ]
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": user_prompt
-                        }
-                    ]
-                }
-            ],
-            "text": {
-                "format": {
-                    "type": "text"
-                }
-            },
-            "reasoning": {},
-            "tools": [],
-            "temperature": 1,
-            "max_output_tokens": 2048,
-            "top_p": 1,
-            "store": True
-        }
+            {
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
+        "temperature": 1.0,
+        "max_tokens": 2048,
+        "top_p": 1.0
+    }
 
     print("[OPENAI] Request body created")
 
     # Print summarized version of request for debugging
-    print(f"[OPENAI] Request summary: model={request_body['model']}, max_tokens={request_body['max_output_tokens']}")
+    print(f"[OPENAI] Request summary: model={model}, max_tokens={request_body['max_tokens']}")
 
     async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout
         try:
@@ -232,59 +169,30 @@ async def call_openai_api(user_prompt: str, config_page_instruction: str, custom
             data = response.json()
             print("[OPENAI] Response parsed as JSON")
 
-            # Extract text from response using improved parsing
+            # Extract text from response using simpler ChatGPT API structure
             print("[OPENAI] Extracting text from response...")
-            output_content = None
-
-            try:
-                # Check if 'output' field exists in the response
-                if data and "output" in data:
-                    # Use the helper function to extract text from output
-                    output_content = extract_text_from_output(data["output"])
-
-                # Try different locations in the response structure
-                if output_content is None and "choices" in data:
-                    print("[OPENAI] Trying to extract from 'choices' field")
-                    choices = data["choices"]
-                    if isinstance(choices, list) and len(choices) > 0:
-                        output_content = extract_text_from_output(choices[0])
-
-                # If we still don't have content, try to parse the entire response
-                if output_content is None:
-                    print("[OPENAI] Trying to extract from entire response")
-                    output_content = extract_text_from_output(data)
-            except Exception as e:
-                print(f"[ERROR] Error parsing response: {e}")
-                # Continue to the error handling below
-
+            
+            if "choices" in data and len(data["choices"]) > 0:
+                content = data["choices"][0].get("message", {}).get("content", "")
+                if content:
+                    print(f"[OPENAI] Successfully extracted text, length: {len(content)}")
+                    return content
+                    
+            # Fallback to more complex parsing if needed
+            output_content = extract_text_from_output(data)
+            
             if output_content:
-                print(f"[OPENAI] Successfully extracted text, length: {len(output_content)}")
-                # Safely print preview without causing errors
-                try:
-                    if isinstance(output_content, str):
-                        preview = output_content[:100]
-                        print(f"[OPENAI] Text preview: {preview}... (truncated)")
-                except Exception as e:
-                    print(f"[OPENAI] Error creating preview: {e}")
+                print(f"[OPENAI] Successfully extracted text using fallback, length: {len(output_content)}")
                 return output_content
             else:
-                # If we couldn't find any text in the response, log the full response (truncated)
+                # If we couldn't find any text in the response
                 print("[ERROR] Failed to extract text from response")
                 try:
                     response_str = json.dumps(data, default=str)[:500] # Convert to JSON safely
                     print(f"[ERROR] Response structure: {response_str}... (truncated)")
                 except Exception as e:
                     print(f"[ERROR] Could not serialize response data: {e}")
-
-                # If there's message content even if we couldn't parse it normally, try a fallback approach
-                if "output" in data and isinstance(data["output"], list):
-                    for item in data["output"]:
-                        if isinstance(item, dict) and item.get("type") == "message" and "id" in item:
-                            # This looks like a message but we couldn't parse it normally
-                            # Return a fallback message
-                            print("[OPENAI] Using fallback message extraction")
-                            return "I processed your request, but encountered technical difficulties. Please try again or rephrase your query."
-
+                
                 raise HTTPException(status_code=500, detail="Failed to parse content from OpenAI API response.")
 
         except httpx.HTTPStatusError as e:

@@ -25,6 +25,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
   const [mainEditorContent, setMainEditorContent] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
   // Load model preferences only
   useEffect(() => {
@@ -40,6 +41,26 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [copySuccess]);
+
+  // Clear status messages after a delay
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => {
+        setStatusMessage('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
+  // Clear API error messages after a delay
+  useEffect(() => {
+    if (apiKeyError) {
+      const timer = setTimeout(() => {
+        setApiKeyError('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [apiKeyError]);
 
   // Add effect to keep finalContent in sync with mainEditorContent for backward compatibility
   useEffect(() => {
@@ -59,6 +80,32 @@ function App() {
       }
     }
   }, [optimizedContentMap, currentStep, currentPlatform, mainEditorContent]);
+
+  // Effect to prevent outline content flicker in step 2
+  useEffect(() => {
+    if (currentStep === 2 && !generatedOutline) {
+      // If somehow we got to step 2 without an outline, go back to step 1
+      setCurrentStep(1);
+    }
+  }, [currentStep, generatedOutline]);
+
+  // Effect to track changes in mainEditorContent and update optimizedContentMap
+  useEffect(() => {
+    // Only sync changes when in step 3 and not during platform switching
+    if (currentStep === 3 && currentPlatform && !isPlatformSwitching && mainEditorContent) {
+      // Update the optimizedContentMap with current editor content
+      setOptimizedContentMap(prev => ({
+        ...prev,
+        [currentPlatform]: {
+          ...prev[currentPlatform],
+          content: mainEditorContent,
+          isLoading: false,
+          // Preserve other properties like error state
+          error: prev[currentPlatform]?.error || false
+        }
+      }));
+    }
+  }, [currentStep, currentPlatform, mainEditorContent, isPlatformSwitching]);
 
   // Content type presets
   const contentPresets = [
@@ -113,9 +160,16 @@ function App() {
         contentType,
         configPageInstruction // Pass the ConfigPage instruction
       );
+      
+      // Clear all optimized content when a new outline is generated
+      setOptimizedContentMap({}); 
+      setMainEditorContent('');
+      
+      // Set the outline and move to step 2
       setGeneratedOutline(outline);
       setCurrentStep(2);
     } catch (error) {
+      console.error("Error generating outline:", error);
       setApiKeyError('Error connecting to OpenAI API. Please check your configuration.');
       // Stay on current step when there's an error
     } finally {
@@ -124,11 +178,12 @@ function App() {
   };
 
   const selectPlatform = (platform) => {
-    // Store current content if moving from step 3
-    if (currentStep === 3 && mainEditorContent) {
+    // Always store current content before switching platforms
+    if (currentStep === 3 && mainEditorContent && currentPlatform) {
       setOptimizedContentMap(prev => ({
         ...prev,
         [currentPlatform]: { 
+          ...(prev[currentPlatform] || {}),
           content: mainEditorContent, 
           isLoading: false 
         }
@@ -136,11 +191,12 @@ function App() {
     }
     
     setCurrentPlatform(platform);
+    setIsPlatformSwitching(true);
     
     // Check if we already have optimized content for this platform
     const platformData = optimizedContentMap[platform];
     
-    if (!platformData) {
+    if (!platformData || !platformData.content) {
       // If no optimized content exists, trigger optimization
       setMainEditorContent(''); // Clear main editor while loading
       
@@ -148,6 +204,7 @@ function App() {
       setOptimizedContentMap(prev => ({
         ...prev,
         [platform]: { 
+          ...(prev[platform] || {}),
           content: '', 
           isLoading: true 
         }
@@ -157,7 +214,6 @@ function App() {
       const configPageInstruction = getOptimizeInstruction();
       
       // For the primary platform, call the API directly and update main editor content
-      // This ensures the primary platform is optimized when going from step 2 to step 3
       OpenAIService.optimizeForPlatform(
         generatedOutline, 
         platform,
@@ -170,10 +226,14 @@ function App() {
         setOptimizedContentMap(prev => ({
           ...prev,
           [platform]: {
+            ...(prev[platform] || {}),
             content: optimizedContent,
-            isLoading: false
+            isLoading: false,
+            error: false,
+            timestamp: new Date().toISOString()
           }
         }));
+        setIsPlatformSwitching(false);
       }).catch(error => {
         console.error(`Error optimizing for ${platform}:`, error);
         setApiKeyError(`Failed to optimize for ${platform}. ${error.message || 'API error'}`);
@@ -182,14 +242,18 @@ function App() {
         setOptimizedContentMap(prev => ({
           ...prev,
           [platform]: {
+            ...(prev[platform] || {}),
             content: `Error: ${error.message || 'Failed to optimize content'}`,
-            isLoading: false
+            isLoading: false,
+            error: true
           }
         }));
+        setIsPlatformSwitching(false);
       });
     } else if (!platformData.isLoading) {
       // If we have content and it's not loading, use it
       setMainEditorContent(platformData.content);
+      setIsPlatformSwitching(false);
     } else {
       // Content is loading, clear the editor temporarily
       setMainEditorContent('');
@@ -198,17 +262,40 @@ function App() {
     setCurrentStep(3);
   };
 
+  // Add a function to handle editor content changes in step 3
+  const handleMainEditorContentChange = (newContent) => {
+    // Update the main editor content
+    setMainEditorContent(newContent);
+    
+    // Immediately sync with the optimizedContentMap (alternative to the useEffect)
+    if (currentPlatform) {
+      setOptimizedContentMap(prev => ({
+        ...prev,
+        [currentPlatform]: {
+          ...(prev[currentPlatform] || {}),
+          content: newContent,
+          isLoading: false,
+          // Mark as manually edited
+          edited: true
+        }
+      }));
+    }
+  };
+
   const copyToClipboard = (content) => {
     navigator.clipboard.writeText(content)
       .then(() => {
         setCopySuccess(true);
+        setStatusMessage('Content copied to clipboard!');
       })
       .catch(err => {
         console.error('Could not copy text: ', err);
+        setApiKeyError('Failed to copy to clipboard. Please try again.');
       });
   };
 
   const resetWorkflow = () => {
+    // Clear all state completely
     setCurrentStep(1);
     setContentDescription('');
     setContentType('');
@@ -216,8 +303,40 @@ function App() {
     setMainEditorContent('');
     setFinalContent('');
     setCurrentPlatform('');
+    // Clear the entire content map to remove any memory of previous content
     setOptimizedContentMap({});
     setApiKeyError('');
+    setStatusMessage('');
+    
+    // Clear local storage cache if needed (optional)
+    // localStorage.removeItem('writer_pro_temp_content');
+    
+    console.log("Workflow reset - all content cleared");
+  };
+
+  // Function to handle going back from step 3 to step 2 while preserving content
+  const handleBackToStep2 = () => {
+    // First save current editor content for the current platform
+    if (mainEditorContent && currentPlatform) {
+      setOptimizedContentMap(prev => ({
+        ...prev,
+        [currentPlatform]: {
+          ...(prev[currentPlatform] || {}),
+          content: mainEditorContent,
+          isLoading: false,
+          edited: true
+        }
+      }));
+    }
+    
+    // Now go back to step 2
+    setCurrentStep(2);
+  };
+
+  // Function to handle back button from step 2 to step 1
+  const handleBackToStep1 = () => {
+    // Preserve the outline when going back to step 1
+    setCurrentStep(1);
   };
 
   const toggleSidebar = () => {
@@ -284,31 +403,43 @@ function App() {
   const renderHomeView = () => {
     return (
       <div className="home-view">
+        {apiKeyError && (
+          <div className="api-error-message">
+            <p>⚠️ {apiKeyError}</p>
+          </div>
+        )}
+        
+        {statusMessage && (
+          <div className="status-message">
+            {statusMessage}
+          </div>
+        )}
+        
+        {/* Step 1: Describe your content */}
         {currentStep === 1 && (
           <div className="content-card">
-            <div className="step-indicator">
-              <div className="step-number">1</div>
-              <div className="step-label">Step 1 of 3: Describe Your Content</div>
-            </div>
-            <h2>What do you want to create?</h2>
+            <h2>Describe Your Content</h2>
             
             <div className="content-description">
-              <textarea 
+              <label htmlFor="content-description">What would you like to write about?</label>
+              <textarea
+                id="content-description"
+                className="content-textarea"
                 value={contentDescription}
                 onChange={(e) => setContentDescription(e.target.value)}
-                placeholder="Describe what you want to write about..."
-                className="content-textarea"
+                placeholder="Describe your content in detail, including topics, tone, and target audience..."
               />
             </div>
             
             <div className="content-presets">
-              <h3>Quick templates:</h3>
+              <h3>Content Type</h3>
               <div className="preset-grid">
                 {contentPresets.map(preset => (
-                  <button 
+                  <button
                     key={preset.id}
-                    className={contentType === preset.id ? 'preset-card active' : 'preset-card'}
+                    className={`preset-card ${contentType === preset.id ? 'active' : ''}`}
                     onClick={() => handleContentPresetClick(preset)}
+                    title={preset.label}
                   >
                     <div className="preset-icon">{preset.icon}</div>
                     <div className="preset-label">{preset.label}</div>
@@ -319,44 +450,54 @@ function App() {
             
             <div className="action-container">
               <button 
-                className="action-button primary"
+                className="action-button primary" 
                 onClick={generateAIOutline}
-                disabled={(!contentDescription && !contentType) || isGenerating}
+                disabled={!contentDescription || !contentType || isGenerating}
               >
-                {isGenerating ? 'Generating...' : 'Generate Outline'} {isGenerating && <span className="loading-spinner"></span>}
+                {isGenerating ? (
+                  <>
+                    <div className="loading-spinner"></div>
+                    Generating...
+                  </>
+                ) : 'Generate Outline'}
               </button>
             </div>
           </div>
         )}
         
+        {/* Step 2: Review & Edit Outline */}
         {currentStep === 2 && (
           <div className="content-card">
+            <h2>Review & Edit Outline</h2>
+            
             <div className="step-indicator">
               <div className="step-number">2</div>
-              <div className="step-label">Step 2 of 3: Choose Platform & Review Outline</div>
+              <div className="step-label">Review and edit your content outline</div>
             </div>
-            <h2>AI-Generated Outline</h2>
-            {apiKeyError && <div className="api-error-message">{apiKeyError}</div>}
             
             <div className="outline-container">
-              <div className="outline-content">
-                <textarea
-                  value={generatedOutline}
-                  onChange={(e) => setGeneratedOutline(e.target.value)}
-                  className="outline-textarea"
-                  placeholder="Your outline will appear here..."
-                />
-              </div>
+              <Editor 
+                key={`outline-editor-${generatedOutline.length}`} // Key helps prevent state conflicts
+                initialContent={generatedOutline}
+                onChange={(newOutline) => {
+                  // Only update if content actually changed to prevent render loops
+                  if (newOutline !== generatedOutline) {
+                    setGeneratedOutline(newOutline);
+                  }
+                }}
+                placeholder="Loading outline..."
+              />
             </div>
             
             <div className="platform-selector">
-              <h3>Select platform to optimize for</h3>
+              <h3>Select platform to optimize for:</h3>
               <div className="platform-grid">
                 {platformOptions.map(platform => (
                   <button 
-                    key={platform.id}
+                    key={platform.id} 
                     className="platform-card"
                     onClick={() => selectPlatform(platform.id)}
+                    title={`Optimize for ${platform.label}`}
                   >
                     <div className="platform-icon">{platform.icon}</div>
                     <div className="platform-name">{platform.label}</div>
@@ -366,65 +507,59 @@ function App() {
             </div>
             
             <div className="action-container">
-              <button className="action-button secondary" onClick={() => setCurrentStep(1)}>
+              <button className="action-button secondary" onClick={handleBackToStep1}>
                 Back
               </button>
             </div>
           </div>
         )}
         
+        {/* Step 3: Optimize Content */}
         {currentStep === 3 && (
           <div className="content-card">
+            <h2>Optimize Content</h2>
+            
             <div className="step-indicator">
               <div className="step-number">3</div>
-              <div className="step-label">Step 3 of 3: Edit & Copy Content</div>
+              <div className="step-label">
+                Optimize for {platformOptions.find(p => p.id === currentPlatform)?.label || 'platform'}
+              </div>
             </div>
-            <h2>Optimize for {currentPlatform}</h2>
-            {apiKeyError && <div className="api-error-message">{apiKeyError}</div>}
             
-            {optimizedContentMap[currentPlatform]?.isLoading && (
+            {isPlatformSwitching && (
               <div className="platform-switching-indicator">
                 <div className="loading-spinner"></div>
-                <p>Optimizing initial content for {currentPlatform}...</p>
+                <p>Optimizing content for {platformOptions.find(p => p.id === currentPlatform)?.label}...</p>
               </div>
             )}
             
-            <Editor 
-              platform={currentPlatform} 
-              contentDescription={contentDescription}
-              contentType={contentType}
-              value={mainEditorContent || ''}
-              onContentChange={(newContent) => {
-                setMainEditorContent(newContent);
-                if (currentPlatform && optimizedContentMap[currentPlatform]) {
-                  setOptimizedContentMap(prev => ({
-                    ...prev,
-                    [currentPlatform]: { ...prev[currentPlatform], content: newContent }
-                  }));
-                }
-              }}
-            />
+            {!isPlatformSwitching && (
+              <div className="editor-container">
+                <EditorWithProtection
+                  platform={currentPlatform}
+                  content={mainEditorContent}
+                  onChange={handleMainEditorContentChange}
+                />
+              </div>
+            )}
             
             <div className="action-container">
-              <button className="action-button secondary" onClick={() => setCurrentStep(2)}>
+              <button 
+                className="action-button secondary" 
+                onClick={handleBackToStep2}
+              >
                 Back
               </button>
+              
               <button 
-                className="action-button primary"
+                className="action-button primary" 
                 onClick={() => copyToClipboard(mainEditorContent)}
-                disabled={!mainEditorContent || optimizedContentMap[currentPlatform]?.isLoading}
+                disabled={!mainEditorContent || isPlatformSwitching}
               >
-                {copySuccess ? '✓ Copied!' : `Copy ${currentPlatform} Content`}
-              </button>
-              <button 
-                className="action-button secondary"
-                onClick={resetWorkflow}
-              >
-                Create New Content
+                {copySuccess ? 'Copied!' : 'Copy Content'}
               </button>
             </div>
-
-            {/* Section for optimizing for OTHER platforms */}
+            
             <div className="other-platforms-section">
               <h3>Also optimize for:</h3>
               <div className="platform-grid">
@@ -433,23 +568,29 @@ function App() {
                   .map(platform => {
                     const platformData = optimizedContentMap[platform.id];
                     const isLoading = platformData?.isLoading;
-                    const isOptimized = platformData && !isLoading && platformData.content;
+                    const isOptimized = platformData && !isLoading && platformData.content && !platformData.error;
+                    const hasError = platformData?.error;
                     
                     return (
                       <button 
                         key={platform.id}
-                        className={`platform-card ${isOptimized ? 'optimized' : ''} ${isLoading ? 'loading' : ''}`}
+                        className={`platform-card ${isOptimized ? 'optimized' : ''} ${isLoading ? 'loading' : ''} ${hasError ? 'error' : ''}`}
                         onClick={() => optimizeForAdditionalPlatform(platform.id)}
                         disabled={isLoading}
-                        title={isLoading ? `Optimizing for ${platform.label}...` : `Optimize for ${platform.label}`}
+                        title={isLoading ? `Optimizing for ${platform.label}...` : 
+                               hasError ? `Error optimizing for ${platform.label}. Click to retry.` :
+                               isOptimized ? `View ${platform.label} content` : 
+                               `Optimize for ${platform.label}`}
                       >
                         {isLoading ? (
-                          <div className="loading-spinner dark"></div> // Use dark spinner for visibility
+                          <div className="loading-spinner dark"></div>
+                        ) : hasError ? (
+                          <div className="platform-icon">⚠️</div>
                         ) : (
                           <div className="platform-icon">{platform.icon}</div>
                         )}
                         <div className="platform-name">{platform.label}</div>
-                        {isOptimized && !isLoading && (
+                        {isOptimized && !isLoading && !hasError && (
                           <div className="optimized-badge" title="Optimized">✓</div>
                         )}
                       </button>
@@ -468,12 +609,16 @@ function App() {
                   if (!platformData || platformData.isLoading || !platformData.content) return null; 
                   
                   // Check if content indicates an error
-                  const isError = typeof platformData.content === 'string' && platformData.content.startsWith('Error:');
+                  const isError = platformData.error || 
+                                (typeof platformData.content === 'string' && 
+                                platformData.content.startsWith('Error:'));
 
                   return (
                     <div key={platform.id} className={`optimized-result-card ${isError ? 'error' : ''}`}>
                       <div className="result-header">
-                        <h3>{platform.label} Content</h3>
+                        <h3>
+                          {isError ? `⚠️ ${platform.label} Error` : `${platform.icon} ${platform.label} Content`}
+                        </h3>
                         {!isError && (
                           <button 
                             className="action-button secondary small-button"
@@ -485,13 +630,21 @@ function App() {
                       </div>
                       <div className="result-content markdown-preview">
                         {isError ? (
-                           <p className="error-text">⚠️ {platformData.content}</p>
+                           <p className="error-text">⚠️ {platformData.content.replace('Error: ', '')}</p>
                         ) : (
                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
                              {platformData.content}
                            </ReactMarkdown>
                         )}
                       </div>
+                      {isError && (
+                        <button 
+                          className="action-button secondary"
+                          onClick={() => optimizeForAdditionalPlatform(platform.id)}
+                        >
+                          Retry
+                        </button>
+                      )}
                     </div>
                   )
                 })}
@@ -510,13 +663,26 @@ function App() {
 
   // Add the optimizeForAdditionalPlatform function
   const optimizeForAdditionalPlatform = async (platformId) => {
+    // Check if the platform content has already been edited by the user
+    const existingData = optimizedContentMap[platformId];
+    const hasBeenEdited = existingData?.edited === true;
+    
+    // If it's been manually edited and has content, just show that content without re-optimizing
+    if (hasBeenEdited && existingData?.content && !existingData.error) {
+      // Just show a message that we're using the edited version
+      setStatusMessage(`Using your edited ${platformOptions.find(p => p.id === platformId)?.label || platformId} content`);
+      setTimeout(() => setStatusMessage(''), 2000);
+      return;
+    }
+    
     // Update the map to show loading state for this platform
     setOptimizedContentMap(prev => ({
       ...prev,
       [platformId]: { 
         ...(prev[platformId] || {}), // Keep existing data if any
         content: prev[platformId]?.content || '', 
-        isLoading: true 
+        isLoading: true,
+        error: false
       }
     }));
 
@@ -536,21 +702,69 @@ function App() {
       setOptimizedContentMap(prev => ({
         ...prev,
         [platformId]: {
+          ...(prev[platformId] || {}),
           content: optimizedContent,
-          isLoading: false
+          isLoading: false,
+          error: false,
+          edited: false, // Reset edited flag
+          timestamp: new Date().toISOString() // Add timestamp for cache management
         }
       }));
+
+      // Show success message
+      setStatusMessage(`Content optimized for ${platformOptions.find(p => p.id === platformId)?.label || platformId}!`);
+      setTimeout(() => setStatusMessage(''), 3000);
     } catch (error) {
       console.error(`Error optimizing for ${platformId}:`, error);
       // Update the map with the error
       setOptimizedContentMap(prev => ({
         ...prev,
         [platformId]: {
+          ...(prev[platformId] || {}),
           content: `Error: ${error.message || 'Failed to optimize content'}`,
-          isLoading: false
+          isLoading: false,
+          error: true,
+          edited: false // Reset edited flag
         }
       }));
+
+      // Show error message
+      setApiKeyError(`Failed to optimize for ${platformId}. ${error.message || 'API error'}`);
+      setTimeout(() => setApiKeyError(''), 5000);
     }
+  };
+
+  // Create a custom editor component with unmount protection
+  const EditorWithProtection = ({ platform, content, onChange }) => {
+    // Save content on unmount
+    useEffect(() => {
+      // Return cleanup function that runs when component unmounts
+      return () => {
+        if (content && platform) {
+          console.log(`Saving content for ${platform} on editor unmount`);
+          // Save content to optimizedContentMap when component unmounts
+          setOptimizedContentMap(prev => ({
+            ...prev,
+            [platform]: {
+              ...(prev[platform] || {}),
+              content: content,
+              isLoading: false,
+              edited: true
+            }
+          }));
+        }
+      };
+    }, [platform, content]);
+
+    return (
+      <Editor 
+        key={`editor-${platform}`}
+        initialContent={content}
+        onChange={onChange}
+        platform={platform}
+        placeholder={`Loading content optimized for ${platform}...`}
+      />
+    );
   };
 
   // Get content for the current view
