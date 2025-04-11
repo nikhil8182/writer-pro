@@ -73,9 +73,38 @@ Both frontend and backend code are now managed in a single repository. Follow th
    git add writer-pro-backend/
    ```
 
-3. **Commit with a descriptive message:**
+3. **Commit with structured, descriptive messages:**
+   
+   Use the following format for better clarity:
    ```bash
-   git commit -m "Add feature X to frontend and update backend endpoint Y"
+   git commit -m "[AREA] Short description of changes
+   
+   - Detailed bullet point 1
+   - Detailed bullet point 2"
+   ```
+   
+   Examples:
+   ```bash
+   # Frontend-only change
+   git commit -m "[FRONTEND] Add dark mode toggle to editor
+   
+   - Add ThemeContext provider
+   - Implement toggle button in navbar
+   - Update CSS for dark theme"
+   
+   # Backend-only change
+   git commit -m "[BACKEND] Fix content generation API timeout
+   
+   - Increase OpenAI API timeout to 60s
+   - Add error handling for timeouts
+   - Log detailed errors to console"
+   
+   # Full-stack change
+   git commit -m "[FULL] Implement content optimization feature
+   
+   - Add optimization endpoint to backend
+   - Create UI component in frontend
+   - Connect frontend and backend with fetch API"
    ```
 
 4. **Push to the repository:**
