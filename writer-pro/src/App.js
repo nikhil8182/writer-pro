@@ -26,6 +26,7 @@ function App() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [mainEditorContent, setMainEditorContent] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [quickJumpOpen, setQuickJumpOpen] = useState(false);
 
   // Load model preferences only
   useEffect(() => {
@@ -388,9 +389,23 @@ function App() {
                 ></div>
               </div>
               <div className="step-labels">
-                <span className={currentStep >= 1 ? 'active' : ''}>Describe</span>
-                <span className={currentStep >= 2 ? 'active' : ''}>Outline</span>
-                <span className={currentStep >= 3 ? 'active' : ''}>Edit</span>
+                <span 
+                  className={currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}
+                  onClick={() => currentStep > 1 ? setCurrentStep(1) : null}
+                >
+                  Describe
+                </span>
+                <span 
+                  className={currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}
+                  onClick={() => currentStep > 2 && generatedOutline ? setCurrentStep(2) : null}
+                >
+                  Outline
+                </span>
+                <span 
+                  className={currentStep >= 3 ? 'active' : ''}
+                >
+                  Edit
+                </span>
               </div>
             </div>
           )}
@@ -418,7 +433,9 @@ function App() {
         {/* Step 1: Describe your content */}
         {currentStep === 1 && (
           <div className="content-card">
-            <h2>Describe Your Content</h2>
+            <div className="content-nav">
+              <h2 className="nav-title">Describe Your Content</h2>
+            </div>
             
             <div className="content-description">
               <label htmlFor="content-description">What would you like to write about?</label>
@@ -468,11 +485,13 @@ function App() {
         {/* Step 2: Review & Edit Outline */}
         {currentStep === 2 && (
           <div className="content-card">
-            <h2>Review & Edit Outline</h2>
-            
-            <div className="step-indicator">
-              <div className="step-number">2</div>
-              <div className="step-label">Review and edit your content outline</div>
+            <div className="content-nav">
+              <h2 className="nav-title">Review & Edit Outline</h2>
+              <div className="nav-actions">
+                <button className="nav-button previous" onClick={handleBackToStep1}>
+                  Back to Describe
+                </button>
+              </div>
             </div>
             
             <div className="outline-container">
@@ -505,24 +524,18 @@ function App() {
                 ))}
               </div>
             </div>
-            
-            <div className="action-container">
-              <button className="action-button secondary" onClick={handleBackToStep1}>
-                Back
-              </button>
-            </div>
           </div>
         )}
         
         {/* Step 3: Optimize Content */}
         {currentStep === 3 && (
           <div className="content-card">
-            <h2>Optimize Content</h2>
-            
-            <div className="step-indicator">
-              <div className="step-number">3</div>
-              <div className="step-label">
-                Optimize for {platformOptions.find(p => p.id === currentPlatform)?.label || 'platform'}
+            <div className="content-nav">
+              <h2 className="nav-title">Optimize Content</h2>
+              <div className="nav-actions">
+                <button className="nav-button previous" onClick={handleBackToStep2}>
+                  Back to Outline
+                </button>
               </div>
             </div>
             
@@ -676,17 +689,42 @@ function App() {
                   )
                 })}
             </div>
-            
-            <div className="action-container">
-              <button 
-                className="action-button secondary" 
-                onClick={handleBackToStep2}
-              >
-                Back
-              </button>
-            </div>
           </div>
         )}
+
+        {/* Quick Jump Navigation */}
+        <div className="quick-jump">
+          {quickJumpOpen && (
+            <div className="quick-jump-menu">
+              <button onClick={() => { setCurrentStep(1); setQuickJumpOpen(false); }}>
+                <span>1</span> Describe Content
+              </button>
+              {generatedOutline && (
+                <button onClick={() => { setCurrentStep(2); setQuickJumpOpen(false); }}>
+                  <span>2</span> Edit Outline
+                </button>
+              )}
+              {currentPlatform && (
+                <button onClick={() => { setCurrentStep(3); setQuickJumpOpen(false); }}>
+                  <span>3</span> Optimize Content
+                </button>
+              )}
+              <button onClick={() => { setCurrentView('config'); setQuickJumpOpen(false); }}>
+                <span>⚙️</span> Settings
+              </button>
+              <button onClick={() => { resetWorkflow(); setQuickJumpOpen(false); }}>
+                <span>🔄</span> New Content
+              </button>
+            </div>
+          )}
+          <button 
+            className="quick-jump-button" 
+            onClick={() => setQuickJumpOpen(!quickJumpOpen)}
+            title="Quick Navigation"
+          >
+            {quickJumpOpen ? '×' : '≡'}
+          </button>
+        </div>
       </div>
     );
   };
