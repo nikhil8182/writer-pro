@@ -4,34 +4,51 @@ import { getReplyInstruction } from './ConfigPage'; // Import the getter
 import './ReplyView.css';
 
 function ReplyView() {
+  const [originalPost, setOriginalPost] = useState(''); // New state for original post
   const [commentText, setCommentText] = useState('');
+  const [followUpComment, setFollowUpComment] = useState(''); // New state for follow-up
   const [replyTone, setReplyTone] = useState('helpful'); // e.g., helpful, appreciative, critical, funny
   const [generatedReply, setGeneratedReply] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleGenerateReply = async () => {
-    if (!commentText) return;
+    // Require either original post (to comment on) or a comment (to reply to)
+    if (!originalPost && !commentText) return; 
 
     setIsLoading(true);
     setError('');
     setGeneratedReply('');
 
     try {
-      // TODO: Replace with a dedicated backend endpoint for replying to comments
-      // For now, we can adapt the rewrite endpoint or create a specific prompt
-      const prompt = `Generate a ${replyTone} reply to the following comment:\n\nComment:\n"${commentText}"\n\nReply:`;
+      let detailedContext = '';
+      let actionDescription = '';
+
+      if (commentText) {
+        // --- Replying to a comment --- 
+        actionDescription = `Generate a ${replyTone} reply to the "Comment to Reply To", considering the context provided.`;
+        if (originalPost) {
+          detailedContext += `Original Post:\n"${originalPost}"\n\n`;
+        }
+        detailedContext += `Comment to Reply To:\n"${commentText}"\n\n`;
+        if (followUpComment) {
+          detailedContext += `Follow-up Comment:\n"${followUpComment}"\n\n`;
+        }
+      } else {
+        // --- Commenting on the original post --- 
+        actionDescription = `Generate a ${replyTone} comment on the "Original Post".`;
+        detailedContext += `Original Post:\n"${originalPost}"\n\n`;
+        // Ignore followUpComment if we are commenting directly on the post
+      }
       
-      // Using rewriteContent as a placeholder - ideally needs a specific backend route
-      // const reply = await OpenAIService.rewriteContent(prompt, replyTone, 'Generate a suitable reply'); 
+      const finalPrompt = `${detailedContext}${actionDescription}`;
+
+      // Get custom instruction from ConfigPage
+      const customInstruction = getReplyInstruction(); 
       
-      // Get custom instruction from ConfigPage (assuming it exists and is exported)
-      // TODO: Need to import getReplyInstruction if it exists in ConfigPage, or handle differently
-      // const customInstruction = null; // Placeholder: Need a way to get this instruction
-      const customInstruction = getReplyInstruction(); // Use the imported getter
-      
-      // Use the new generateReply service function
-      const reply = await OpenAIService.generateReply(commentText, replyTone, customInstruction);
+      // TODO: Update backend to accept structured context 
+      // Sending the combined context/prompt in the 'comment' field.
+      const reply = await OpenAIService.generateReply(finalPrompt, replyTone, customInstruction);
       setGeneratedReply(reply);
     } catch (err) {
       console.error("Error generating reply:", err);
@@ -45,23 +62,53 @@ function ReplyView() {
     <div className="reply-view">
       <div className="content-card">
         <div className="content-nav">
-          <h2 className="nav-title">Reply to Comments</h2>
+          <h2 className="nav-title">Comment on Post / Reply to Comment</h2>
         </div>
 
-        <div className="reply-form">
-          <div className="form-group">
-            <label htmlFor="comment-text">Comment to Reply To:</label>
+        <div className="reply-thread-container">
+          {/* Original Post Input */}
+          <div className="thread-item original-post-input">
+            <label htmlFor="original-post">Original Post / Post to Comment On:</label>
+            <textarea
+              id="original-post"
+              className="content-textarea"
+              value={originalPost}
+              onChange={(e) => setOriginalPost(e.target.value)}
+              placeholder="Paste the original post here for context..."
+              rows={4}
+            />
+          </div>
+
+          {/* Comment to Reply To Input */}
+          <div className="thread-item comment-to-reply-input">
+            <label htmlFor="comment-text">Comment to Reply To (Optional):</label>
             <textarea
               id="comment-text"
               className="content-textarea"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Paste the comment here..."
-              rows={5}
+              placeholder="Paste the specific comment you want to reply to here... Leave blank to comment on the Original Post."
+              rows={4}
             />
           </div>
 
-          <div className="form-group">
+          {/* Follow-up Comment Input */}
+          <div className="thread-item followup-comment-input">
+            <label htmlFor="followup-comment">Follow-up Comment (Optional Context):</label>
+            <textarea
+              id="followup-comment"
+              className="content-textarea"
+              value={followUpComment}
+              onChange={(e) => setFollowUpComment(e.target.value)}
+              placeholder="Paste any follow-up comment for context..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Reply Generation Section */}
+        <div className="reply-generation-section">
+          <div className="form-group tone-selector">
             <label htmlFor="reply-tone">Desired Reply Tone:</label>
             <select 
               id="reply-tone"
@@ -74,6 +121,8 @@ function ReplyView() {
               <option value="funny">Funny / Witty</option>
               <option value="formal">Formal</option>
               <option value="casual">Casual</option>
+              <option value="agreeable">Agreeable</option>
+              <option value="disagreeable">Disagreeable</option>              
             </select>
           </div>
 
@@ -81,11 +130,11 @@ function ReplyView() {
             <button 
               className="action-button primary" 
               onClick={handleGenerateReply}
-              disabled={!commentText || isLoading}
+              disabled={(!originalPost && !commentText) || isLoading}
             >
               {isLoading ? (
                 <>
-                  <div className="loading-spinner"></div>
+                  <div className="loading-spinner small"></div>
                   Generating Reply...
                 </>
               ) : 'Generate Reply'}
@@ -106,7 +155,7 @@ function ReplyView() {
               className="content-textarea result-textarea"
               value={generatedReply}
               readOnly
-              rows={6}
+              rows={5}
             />
             <button 
               className="action-button secondary small-button copy-button"
