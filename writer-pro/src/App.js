@@ -2,12 +2,14 @@ import './App.css';
 import Editor from './components/Editor';
 import ConfigPage from './components/ConfigPage';
 import ThemeSwitcher from './components/ThemeSwitcher';
-import { getOutlineInstruction, getOptimizeInstruction } from './components/ConfigPage';
+import { getOutlineInstruction, getOptimizeInstruction, getRewriteInstruction } from './components/ConfigPage';
 import { useState, useEffect, useContext } from 'react';
 import { ThemeContext } from './contexts/ThemeContext';
 import OpenAIService from './services/openai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import HistoryView from './components/HistoryView';
+import ReplyView from './components/ReplyView';
 
 function App() {
   const { theme } = useContext(ThemeContext);
@@ -27,6 +29,10 @@ function App() {
   const [mainEditorContent, setMainEditorContent] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [quickJumpOpen, setQuickJumpOpen] = useState(false);
+  const [rewriteContent, setRewriteContent] = useState('');
+  const [rewriteResult, setRewriteResult] = useState('');
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [rewriteStyle, setRewriteStyle] = useState('professional');
 
   // Load model preferences only
   useEffect(() => {
@@ -161,6 +167,22 @@ function App() {
         contentType,
         configPageInstruction // Pass the ConfigPage instruction
       );
+      
+      // Save the generated outline to Supabase
+      /* try {
+        await SupabaseService.saveGeneratedContent({
+          contentType: 'outline',
+          content: outline,
+          description: contentDescription,
+          platform: null,
+          style: null,
+          title: `Outline for ${contentType} content`
+        });
+        console.log('Outline saved to Supabase');
+      } catch (saveError) {
+        console.error('Error saving outline to Supabase:', saveError);
+        // Continue with app flow even if saving fails
+      } */
       
       // Clear all optimized content when a new outline is generated
       setOptimizedContentMap({}); 
@@ -367,6 +389,30 @@ function App() {
               }}>
               <span className="nav-icon">📝</span>
               <span className="nav-label">Write</span>
+            </button>
+            <button 
+              className={currentView === 'rewrite' ? 'nav-item active' : 'nav-item'} 
+              onClick={() => {
+                setCurrentView('rewrite');
+              }}>
+              <span className="nav-icon">🔄</span>
+              <span className="nav-label">Rewrite</span>
+            </button>
+            <button 
+              className={currentView === 'reply' ? 'nav-item active' : 'nav-item'} 
+              onClick={() => {
+                setCurrentView('reply');
+              }}>
+              <span className="nav-icon">💬</span>
+              <span className="nav-label">Reply</span>
+            </button>
+            <button 
+              className={currentView === 'history' ? 'nav-item active' : 'nav-item'} 
+              onClick={() => {
+                setCurrentView('history');
+              }}>
+              <span className="nav-icon">📚</span>
+              <span className="nav-label">History</span>
             </button>
             <button 
               className={currentView === 'config' ? 'nav-item active' : 'nav-item'} 
@@ -734,7 +780,7 @@ function App() {
     return <ConfigPage />;
   };
 
-  // Add the optimizeForAdditionalPlatform function
+  // Modify the optimizeForPlatform function
   const optimizeForAdditionalPlatform = async (platformId) => {
     // Check if the platform content has already been edited by the user
     const existingData = optimizedContentMap[platformId];
@@ -770,6 +816,21 @@ function App() {
         contentType,
         configPageInstruction
       );
+
+      // Save optimized content to Supabase
+      /* try {
+        await SupabaseService.saveGeneratedContent({
+          contentType: 'optimized',
+          content: optimizedContent,
+          platform: platformId,
+          description: contentDescription,
+          style: null,
+          title: `Optimized for ${platformId}`
+        });
+        console.log(`Optimized content for ${platformId} saved to Supabase`);
+      } catch (saveError) {
+        console.error(`Error saving optimized content for ${platformId} to Supabase:`, saveError);
+      } */
 
       // Update the map with the optimized content
       setOptimizedContentMap(prev => ({
@@ -840,6 +901,149 @@ function App() {
     );
   };
 
+  // Rewrite view render function
+  const renderRewriteView = () => {
+    const rewriteStyles = [
+      { id: 'professional', label: 'Professional', icon: '👔' },
+      { id: 'casual', label: 'Casual', icon: '😊' },
+      { id: 'creative', label: 'Creative', icon: '🎨' },
+      { id: 'formal', label: 'Formal', icon: '📜' },
+      { id: 'simple', label: 'Simple', icon: '🔤' },
+    ];
+    
+    const handleRewrite = async () => {
+      if (!rewriteContent) return;
+      
+      setIsRewriting(true);
+      setRewriteResult('');
+      
+      try {
+        // Get the instruction from ConfigPage
+        const configPageInstruction = getRewriteInstruction();
+        
+        // Use our rewriteContent endpoint
+        const rewritten = await OpenAIService.rewriteContent(
+          rewriteContent,
+          rewriteStyle,
+          configPageInstruction
+        );
+        
+        // Save rewritten content to Supabase
+        /* try {
+          await SupabaseService.saveGeneratedContent({
+            contentType: 'rewritten',
+            content: rewritten,
+            platform: null,
+            style: rewriteStyle,
+            description: rewriteContent, 
+            title: `Rewritten in ${rewriteStyle} style`
+          });
+          console.log('Rewritten content saved to Supabase');
+        } catch (saveError) {
+          console.error('Error saving rewritten content to Supabase:', saveError);
+        } */
+        
+        setRewriteResult(rewritten);
+        setStatusMessage("Content successfully rewritten!");
+      } catch (error) {
+        console.error("Error rewriting content:", error);
+        setApiKeyError(`Failed to rewrite content. ${error.message || 'API error'}`);
+      } finally {
+        setIsRewriting(false);
+      }
+    };
+    
+    return (
+      <div className="rewrite-view">
+        {apiKeyError && (
+          <div className="api-error-message">
+            <p>⚠️ {apiKeyError}</p>
+          </div>
+        )}
+        
+        {statusMessage && (
+          <div className="status-message">
+            {statusMessage}
+          </div>
+        )}
+        
+        <div className="content-card">
+          <div className="content-nav">
+            <h2 className="nav-title">Content Rewriter</h2>
+          </div>
+          
+          <div className="rewrite-container">
+            <h3>Input Content</h3>
+            <textarea
+              className="content-textarea"
+              value={rewriteContent}
+              onChange={(e) => setRewriteContent(e.target.value)}
+              placeholder="Paste content you want to rewrite..."
+              rows={8}
+            />
+            
+            <h3>Rewrite Style</h3>
+            <div className="rewrite-options">
+              {rewriteStyles.map(style => (
+                <button
+                  key={style.id}
+                  className={`rewrite-option ${rewriteStyle === style.id ? 'active' : ''}`}
+                  onClick={() => setRewriteStyle(style.id)}
+                >
+                  <span>{style.icon}</span> {style.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="action-container">
+              <button 
+                className="action-button primary" 
+                onClick={handleRewrite}
+                disabled={!rewriteContent || isRewriting}
+              >
+                {isRewriting ? (
+                  <>
+                    <div className="loading-spinner"></div>
+                    Rewriting...
+                  </>
+                ) : 'Rewrite Content'}
+              </button>
+            </div>
+            
+            {rewriteResult && (
+              <div className="rewrite-result">
+                <div className="result-header">
+                  <h3>Rewritten Content ({rewriteStyles.find(s => s.id === rewriteStyle)?.label})</h3>
+                  <button 
+                    className="action-button secondary small-button"
+                    onClick={() => copyToClipboard(rewriteResult)}
+                  >
+                    {copySuccess ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <div className="result-content markdown-preview">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {rewriteResult}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Add a render function for Reply view
+  const renderReplyView = () => {
+    return <ReplyView />;
+  };
+
+  // Add a render function for History view
+  const renderHistoryView = () => {
+    return <HistoryView />;
+  };
+
   // Get content for the current view
   const renderContent = () => {
     switch(currentView) {
@@ -847,6 +1051,12 @@ function App() {
         return renderHomeView();
       case 'config':
         return renderConfigView();
+      case 'rewrite':
+        return renderRewriteView();
+      case 'reply':
+        return renderReplyView();
+      case 'history':
+        return renderHistoryView();
       default:
         return renderHomeView();
     }

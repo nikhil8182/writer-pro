@@ -1488,3 +1488,63 @@ input:checked + .slider:before {
   box-shadow: var(--card-shadow);
   position: relative;
 }
+
+/* Rewrite View Styles */
+.rewrite-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.rewrite-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rewrite-result {
+  margin-top: 20px;
+  background-color: var(--bg-subtle);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition);
+}
+
+.rewrite-result:hover {
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--primary-color-light);
+  transform: translateY(-2px);
+}
+
+.rewrite-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.rewrite-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: var(--transition);
+  color: var(--text-secondary);
+}
+
+.rewrite-option:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.rewrite-option.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}

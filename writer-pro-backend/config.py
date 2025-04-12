@@ -17,8 +17,10 @@ OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
 # Model Configuration
 MODELS = {
-    "outline": "gpt-4o",
-    "optimize": "gpt-4.5-preview"
+    "outline": "gpt-4o-search-preview",
+    "optimize": "gpt-4.5-preview",
+    "rewrite": "gpt-4.5-preview",
+    "reply": "gpt-4.5-preview"
 }
 
 # Platform character limits

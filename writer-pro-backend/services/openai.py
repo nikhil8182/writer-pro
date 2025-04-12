@@ -149,15 +149,27 @@ async def call_openai_api(user_prompt: str, config_page_instruction: str, custom
                 "content": user_prompt
             }
         ],
-        "temperature": 1.0,
-        "max_tokens": 2048,
-        "top_p": 1.0
+        "max_tokens": 2048
     }
+    
+    # Add model-specific parameters
+    if model == "gpt-4o-search-preview":
+        # gpt-4o-search-preview doesn't support temperature and top_p
+        request_body["response_format"] = {"type": "text"}
+        request_body["store"] = False
+    else:
+        # For other models, include temperature and top_p
+        request_body["temperature"] = 1.0
+        request_body["top_p"] = 1.0
 
     print("[OPENAI] Request body created")
 
     # Print summarized version of request for debugging
     print(f"[OPENAI] Request summary: model={model}, max_tokens={request_body['max_tokens']}")
+    
+    # Debug the request body for search-enabled models
+    if "search" in model:
+        print(f"[OPENAI] Using search-enabled model with params: {request_body.keys()}")
 
     async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout
         try:
@@ -210,4 +222,26 @@ async def call_openai_api(user_prompt: str, config_page_instruction: str, custom
             raise HTTPException(status_code=503, detail=f"Could not connect to OpenAI API: {e}")
         except Exception as e:
             print(f"[ERROR] Unexpected error: {e}")
-            raise HTTPException(status_code=500, detail="An internal server error occurred.") 
+            raise HTTPException(status_code=500, detail="An internal server error occurred.")
+
+# --- Service Functions for Specific Tasks --- -
+
+async def generate_outline(content_description: str, content_type: str, base_system_instruction: str):
+    prompt = f"Generate a detailed outline for the following content:\nType: {content_type}\nDescription: {content_description}"
+    return await call_openai_api(prompt, base_system_instruction, None, "outline")
+
+async def optimize_content(content: str, platform: str, content_type: str, base_system_instruction: str):
+    prompt = f"Optimize the following content for the {platform} platform. The original content is for {content_type}.\n\nContent:\n{content}"
+    return await call_openai_api(prompt, base_system_instruction, None, "optimize")
+
+async def rewrite_content(content: str, style: str, base_system_instruction: str):
+    prompt = f"Rewrite the following content in a {style} style:\n\nContent:\n{content}"
+    return await call_openai_api(prompt, base_system_instruction, None, "rewrite")
+
+async def generate_reply(comment: str, tone: str, base_system_instruction: str):
+    """Generates a reply to a given comment in a specified tone."""
+    prompt = f"Generate a {tone} reply to the following comment:\n\nComment:\n{comment}"
+    # Use the base_system_instruction provided from ConfigPage or a default one
+    instruction = base_system_instruction or "You are a helpful assistant that generates replies to comments."
+    print(f"[REPLY] Generating reply for comment: {comment[:50]}... with tone: {tone}")
+    return await call_openai_api(prompt, instruction, None, "reply") 

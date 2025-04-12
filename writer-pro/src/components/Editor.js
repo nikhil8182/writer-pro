@@ -35,7 +35,6 @@ function Editor({
   const [content, setContent] = useState(initialContent || value || '');
   const [charCount, setCharCount] = useState((initialContent || value || '').length);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState('');
   
@@ -87,10 +86,6 @@ function Editor({
     return '';
   };
 
-  const togglePreviewMode = () => {
-    setIsPreviewMode(!isPreviewMode);
-  };
-  
   const getPlatformTips = () => {
     switch(platform) {
       case 'twitter':
@@ -191,44 +186,30 @@ function Editor({
             disabled={!content || isGeneratingAI}
             title="Get AI suggestions to improve your content">
             {isGeneratingAI ? (
-              <><span className="loading-spinner dark"></span> Improving...</>
+              <><span className="loading-spinner dark"></span> AI in progress...</>
             ) : (
-              <><span>✨</span> Improve</>
+              <><span>✨</span> AI Assist</>
             )}
-          </button>
-          <button 
-            className={`view-toggle-btn ${isPreviewMode ? 'active' : ''}`}
-            onClick={togglePreviewMode}
-          >
-            {isPreviewMode ? 'Edit' : 'Preview'}
           </button>
         </div>
       </div>
       
       <div className="editor-main">
-        {isPreviewMode ? (
-          <div className="markdown-preview">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
+        <div className="editor-textarea-container">
+          <textarea 
+            value={content}
+            onChange={handleContentChange}
+            placeholder={placeholder || `Write your optimized ${platform} content here...`}
+            className="editor-textarea"
+          ></textarea>
+          <div className={`char-counter-inline ${getCharCounterClass()}`}>
+            <span className={charCount > currentLimit ? 'over-limit' : ''}>
+              {charCount}
+            </span>
+            <span>/</span>
+            <span>{currentLimit}</span>
           </div>
-        ) : (
-          <div className="editor-textarea-container">
-            <textarea 
-              value={content}
-              onChange={handleContentChange}
-              placeholder={placeholder || `Write your optimized ${platform} content here...`}
-              className="editor-textarea"
-            ></textarea>
-            <div className={`char-counter-inline ${getCharCounterClass()}`}>
-              <span className={charCount > currentLimit ? 'over-limit' : ''}>
-                {charCount}
-              </span>
-              <span>/</span>
-              <span>{currentLimit}</span>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
       
       {showAIAssistant && (

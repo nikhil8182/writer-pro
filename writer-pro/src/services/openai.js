@@ -52,43 +52,68 @@ async function postToBackend(endpoint, body) {
 }
 
 /**
- * Generate an outline by calling the backend endpoint
+ * Generate an outline for new content
  * 
- * @param {string} contentDescription - User's content description
- * @param {string} contentType - Type of content (latest-news, motivation, etc.)
- * @param {string} configPageInstruction - The system instruction from ConfigPage
- * @returns {Promise<string>} - Generated outline
+ * @param {string} contentDescription - User description of content to create
+ * @param {string} contentType - Type of content (e.g., "latest-news", "motivation")
+ * @param {string} customInstruction - Custom system instruction from config page
+ * @returns {Promise<string>} - Generated outline text
  */
-export const generateOutline = async (contentDescription, contentType, configPageInstruction) => {
-  const body = { 
+export const generateOutline = async (contentDescription, contentType, customInstruction) => {
+  // Prepare the request body
+  const body = {
     contentDescription, 
     contentType,
-    base_system_instruction: configPageInstruction, // ConfigPage instruction renamed for backend
-    customSystemInstruction: "" // Kept for backend compatibility
+    base_system_instruction: customInstruction,
   };
+  
+  // Send to backend
   const data = await postToBackend('/generate-outline', body);
-  return data.outline; // Assuming backend returns { "outline": "..." }
+  return data.outline;
 };
 
 /**
- * Optimize content by calling the backend endpoint
+ * Optimize content for a specific platform
  * 
- * @param {string} content - The content to optimize
- * @param {string} platform - The platform to optimize for (twitter, linkedin, etc.)
- * @param {string} contentType - Type of content
- * @param {string} configPageInstruction - The system instruction from ConfigPage
- * @returns {Promise<string>} - Optimized content
+ * @param {string} content - Content to optimize
+ * @param {string} platform - Target platform (e.g., "twitter", "linkedin")
+ * @param {string} contentType - Type of content being optimized
+ * @param {string} customInstruction - Custom system instruction from config page
+ * @returns {Promise<string>} - Optimized content for the platform
  */
-export const optimizeForPlatform = async (content, platform, contentType, configPageInstruction) => {
-  const body = { 
-    content, 
-    platform, 
+export const optimizeForPlatform = async (content, platform, contentType, customInstruction) => {
+  // Prepare the request body
+  const body = {
+    content,
+    platform,
     contentType,
-    base_system_instruction: configPageInstruction, // ConfigPage instruction renamed for backend
-    customSystemInstruction: "" // Kept for backend compatibility
+    base_system_instruction: customInstruction,
   };
+  
+  // Send to backend
   const data = await postToBackend('/optimize-content', body);
-  return data.optimizedContent; // Assuming backend returns { "optimizedContent": "..." }
+  return data.optimizedContent;
+};
+
+/**
+ * Rewrite content in a specific style
+ * 
+ * @param {string} content - Content to rewrite
+ * @param {string} style - Style to use for rewriting (e.g., "professional", "casual")
+ * @param {string} customInstruction - Custom system instruction from config page
+ * @returns {Promise<string>} - Rewritten content in the specified style
+ */
+export const rewriteContent = async (content, style, customInstruction) => {
+  // Prepare the request body
+  const body = {
+    content,
+    style,
+    base_system_instruction: customInstruction,
+  };
+  
+  // Send to backend
+  const data = await postToBackend('/rewrite-content', body);
+  return data.rewrittenContent;
 };
 
 /**
@@ -129,10 +154,33 @@ export const getSuggestion = async (content, platform) => {
   }
 };
 
-// Export necessary functions and constants
+/**
+ * Generate a reply to a comment
+ * 
+ * @param {string} comment - The comment to reply to
+ * @param {string} tone - The desired tone for the reply
+ * @param {string} customInstruction - Custom system instruction from config page (optional)
+ * @returns {Promise<string>} - Generated reply text
+ */
+export const generateReply = async (comment, tone, customInstruction) => {
+  // Prepare the request body
+  const body = {
+    comment,
+    tone,
+    base_system_instruction: customInstruction || null // Use null if no instruction provided
+  };
+  
+  // Send to backend /generate-reply endpoint
+  const data = await postToBackend('/generate-reply', body);
+  return data.reply; // Expecting the backend to return { "reply": "..." }
+};
+
+// Export default object with all service methods
 export default {
   generateOutline,
   optimizeForPlatform,
+  rewriteContent,
   getSuggestion,
+  generateReply,
   PLATFORM_LIMITS
 }; 
