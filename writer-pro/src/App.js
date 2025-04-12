@@ -3,13 +3,16 @@ import Editor from './components/Editor';
 import ConfigPage from './components/ConfigPage';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import { getOutlineInstruction, getOptimizeInstruction, getRewriteInstruction } from './components/ConfigPage';
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { ThemeContext } from './contexts/ThemeContext';
 import OpenAIService from './services/openai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import HistoryView from './components/HistoryView';
 import ReplyView from './components/ReplyView';
+import Sidebar from './components/Layout/Sidebar';
+import HomeView from './components/HomeView';
+import StatusMessage from './components/ui/StatusMessage';
 
 function App() {
   const { theme } = useContext(ThemeContext);
@@ -28,6 +31,7 @@ function App() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [mainEditorContent, setMainEditorContent] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [statusType, setStatusType] = useState('info');
   const [quickJumpOpen, setQuickJumpOpen] = useState(false);
   const [rewriteContent, setRewriteContent] = useState('');
   const [rewriteResult, setRewriteResult] = useState('');
@@ -115,23 +119,24 @@ function App() {
   }, [currentStep, currentPlatform, mainEditorContent, isPlatformSwitching]);
 
   // Content type presets
-  const contentPresets = [
+  const contentPresets = useMemo(() => [
     { id: 'latest-news', label: 'News', icon: '📰' },
     { id: 'motivation', label: 'Motivation', icon: '💪' },
     { id: 'info', label: 'Information', icon: 'ℹ️' },
     { id: 'vibe-check', label: 'Vibe Check', icon: '😎' },
     { id: 'surprise-me', label: 'Surprise Me', icon: '🎁' }
-  ];
+  ], []);
 
   // Platform options
-  const platformOptions = [
+  const platformOptions = useMemo(() => [
     { id: 'twitter', label: 'Twitter', icon: '🐦' },
     { id: 'linkedin', label: 'LinkedIn', icon: '💼' },
     { id: 'instagram', label: 'Instagram', icon: '📸' },
     { id: 'blog', label: 'Blog', icon: '📝' }
-  ];
+  ], []);
 
-  const handleContentPresetClick = (preset) => {
+  // Memoize handlers to prevent unnecessary re-renders
+  const handleContentPresetClick = useCallback((preset) => {
     setContentType(preset.id);
     // Add predefined descriptions based on the preset
     switch(preset.id) {
@@ -153,9 +158,9 @@ function App() {
       default:
         setContentDescription('');
     }
-  };
+  }, []);
 
-  const generateAIOutline = async () => {
+  const generateAIOutline = useCallback(async () => {
     setIsGenerating(true);
     try {
       // Get the instruction from ConfigPage
@@ -168,22 +173,6 @@ function App() {
         configPageInstruction // Pass the ConfigPage instruction
       );
       
-      // Save the generated outline to Supabase
-      /* try {
-        await SupabaseService.saveGeneratedContent({
-          contentType: 'outline',
-          content: outline,
-          description: contentDescription,
-          platform: null,
-          style: null,
-          title: `Outline for ${contentType} content`
-        });
-        console.log('Outline saved to Supabase');
-      } catch (saveError) {
-        console.error('Error saving outline to Supabase:', saveError);
-        // Continue with app flow even if saving fails
-      } */
-      
       // Clear all optimized content when a new outline is generated
       setOptimizedContentMap({}); 
       setMainEditorContent('');
@@ -194,13 +183,15 @@ function App() {
     } catch (error) {
       console.error("Error generating outline:", error);
       setApiKeyError('Error connecting to OpenAI API. Please check your configuration.');
+      setStatusMessage('Failed to generate outline. Please try again.');
+      setStatusType('error');
       // Stay on current step when there's an error
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [contentDescription, contentType]);
 
-  const selectPlatform = (platform) => {
+  const selectPlatform = useCallback((platform) => {
     // Always store current content before switching platforms
     if (currentStep === 3 && mainEditorContent && currentPlatform) {
       setOptimizedContentMap(prev => ({
@@ -257,9 +248,13 @@ function App() {
           }
         }));
         setIsPlatformSwitching(false);
+        setStatusMessage(`Content optimized for ${platformOptions.find(p => p.id === platform)?.label}`);
+        setStatusType('success');
       }).catch(error => {
         console.error(`Error optimizing for ${platform}:`, error);
         setApiKeyError(`Failed to optimize for ${platform}. ${error.message || 'API error'}`);
+        setStatusMessage(`Failed to optimize for ${platform}`);
+        setStatusType('error');
         
         // Still update the map with the error
         setOptimizedContentMap(prev => ({
@@ -283,10 +278,10 @@ function App() {
     }
     
     setCurrentStep(3);
-  };
+  }, [currentStep, mainEditorContent, currentPlatform, optimizedContentMap, generatedOutline, contentType, platformOptions]);
 
   // Add a function to handle editor content changes in step 3
-  const handleMainEditorContentChange = (newContent) => {
+  const handleMainEditorContentChange = useCallback((newContent) => {
     // Update the main editor content
     setMainEditorContent(newContent);
     
@@ -303,21 +298,24 @@ function App() {
         }
       }));
     }
-  };
+  }, [currentPlatform]);
 
-  const copyToClipboard = (content) => {
+  const copyToClipboard = useCallback((content) => {
     navigator.clipboard.writeText(content)
       .then(() => {
         setCopySuccess(true);
         setStatusMessage('Content copied to clipboard!');
+        setStatusType('success');
       })
       .catch(err => {
         console.error('Could not copy text: ', err);
         setApiKeyError('Failed to copy to clipboard. Please try again.');
+        setStatusMessage('Failed to copy to clipboard');
+        setStatusType('error');
       });
-  };
+  }, []);
 
-  const resetWorkflow = () => {
+  const resetWorkflow = useCallback(() => {
     // Clear all state completely
     setCurrentStep(1);
     setContentDescription('');
@@ -330,15 +328,10 @@ function App() {
     setOptimizedContentMap({});
     setApiKeyError('');
     setStatusMessage('');
-    
-    // Clear local storage cache if needed (optional)
-    // localStorage.removeItem('writer_pro_temp_content');
-    
-    console.log("Workflow reset - all content cleared");
-  };
+  }, []);
 
   // Function to handle going back from step 3 to step 2 while preserving content
-  const handleBackToStep2 = () => {
+  const handleBackToStep2 = useCallback(() => {
     // First save current editor content for the current platform
     if (mainEditorContent && currentPlatform) {
       setOptimizedContentMap(prev => ({
@@ -354,723 +347,182 @@ function App() {
     
     // Now go back to step 2
     setCurrentStep(2);
-  };
+  }, [mainEditorContent, currentPlatform]);
 
   // Function to handle back button from step 2 to step 1
-  const handleBackToStep1 = () => {
+  const handleBackToStep1 = useCallback(() => {
     // Preserve the outline when going back to step 1
     setCurrentStep(1);
-  };
+  }, []);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setSidebarOpen(!sidebarOpen);
-  };
+  }, [sidebarOpen]);
 
-  const renderSidebar = () => {
-    return (
-      <div className={`app-sidebar ${sidebarOpen ? 'open' : 'closed'} ${theme === 'dark' ? 'dark' : 'light'}`}>
-        <div className="sidebar-header">
-          <div className="logo">
-            <span className="logo-icon">✍️</span>
-            <h1>Writer Pro</h1>
-          </div>
-          <button className="sidebar-toggle" onClick={toggleSidebar}>
-            {sidebarOpen ? '◀' : '▶'}
-          </button>
-        </div>
-        
-        <div className="sidebar-content">
-          <nav className="sidebar-nav">
-            <button 
-              className={currentView === 'home' ? 'nav-item active' : 'nav-item'} 
-              onClick={() => {
-                setCurrentView('home');
-                resetWorkflow();
-              }}>
-              <span className="nav-icon">📝</span>
-              <span className="nav-label">Write</span>
-            </button>
-            <button 
-              className={currentView === 'rewrite' ? 'nav-item active' : 'nav-item'} 
-              onClick={() => {
-                setCurrentView('rewrite');
-              }}>
-              <span className="nav-icon">🔄</span>
-              <span className="nav-label">Rewrite</span>
-            </button>
-            <button 
-              className={currentView === 'reply' ? 'nav-item active' : 'nav-item'} 
-              onClick={() => {
-                setCurrentView('reply');
-              }}>
-              <span className="nav-icon">💬</span>
-              <span className="nav-label">Reply</span>
-            </button>
-            <button 
-              className={currentView === 'history' ? 'nav-item active' : 'nav-item'} 
-              onClick={() => {
-                setCurrentView('history');
-              }}>
-              <span className="nav-icon">📚</span>
-              <span className="nav-label">History</span>
-            </button>
-            <button 
-              className={currentView === 'config' ? 'nav-item active' : 'nav-item'} 
-              onClick={() => {
-                setCurrentView('config');
-              }}>
-              <span className="nav-icon">⚙️</span>
-              <span className="nav-label">Settings</span>
-            </button>
-          </nav>
-          
-          <ThemeSwitcher />
-          
-          {currentView === 'home' && (
-            <div className="workflow-progress">
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{width: `${(currentStep / 3) * 100}%`}}
-                ></div>
-              </div>
-              <div className="step-labels">
-                <span 
-                  className={currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}
-                  onClick={() => currentStep > 1 ? setCurrentStep(1) : null}
-                >
-                  Describe
-                </span>
-                <span 
-                  className={currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}
-                  onClick={() => currentStep > 2 && generatedOutline ? setCurrentStep(2) : null}
-                >
-                  Outline
-                </span>
-                <span 
-                  className={currentStep >= 3 ? 'active' : ''}
-                >
-                  Edit
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Home view render function (with streamlined steps)
-  const renderHomeView = () => {
-    return (
-      <div className="home-view">
-        {apiKeyError && (
-          <div className="api-error-message">
-            <p>⚠️ {apiKeyError}</p>
-          </div>
-        )}
-        
-        {statusMessage && (
-          <div className="status-message">
-            {statusMessage}
-          </div>
-        )}
-        
-        {/* Step 1: Describe your content */}
-        {currentStep === 1 && (
-          <div className="content-card">
-            <div className="content-nav">
-              <h2 className="nav-title">Describe Your Content</h2>
-            </div>
-            
-            <div className="content-description">
-              <label htmlFor="content-description">What would you like to write about?</label>
-              <textarea
-                id="content-description"
-                className="content-textarea"
-                value={contentDescription}
-                onChange={(e) => setContentDescription(e.target.value)}
-                placeholder="Describe your content in detail, including topics, tone, and target audience..."
-              />
-            </div>
-            
-            <div className="content-presets">
-              <h3>Content Type</h3>
-              <div className="preset-grid">
-                {contentPresets.map(preset => (
-                  <button
-                    key={preset.id}
-                    className={`preset-card ${contentType === preset.id ? 'active' : ''}`}
-                    onClick={() => handleContentPresetClick(preset)}
-                    title={preset.label}
-                  >
-                    <div className="preset-icon">{preset.icon}</div>
-                    <div className="preset-label">{preset.label}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="action-container">
-              <button 
-                className="action-button primary" 
-                onClick={generateAIOutline}
-                disabled={!contentDescription || !contentType || isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="loading-spinner"></div>
-                    Generating...
-                  </>
-                ) : 'Generate Outline'}
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* Step 2: Review & Edit Outline */}
-        {currentStep === 2 && (
-          <div className="content-card">
-            <div className="content-nav">
-              <h2 className="nav-title">Review & Edit Outline</h2>
-              <div className="nav-actions">
-                <button className="nav-button previous" onClick={handleBackToStep1}>
-                  Back to Describe
-                </button>
-              </div>
-            </div>
-            
-            <div className="outline-container">
-              <Editor 
-                key={`outline-editor-${generatedOutline.length}`} // Key helps prevent state conflicts
-                initialContent={generatedOutline}
-                onChange={(newOutline) => {
-                  // Only update if content actually changed to prevent render loops
-                  if (newOutline !== generatedOutline) {
-                    setGeneratedOutline(newOutline);
-                  }
-                }}
-                placeholder="Loading outline..."
-              />
-            </div>
-            
-            <div className="platform-selector">
-              <h3>Select platform to optimize for:</h3>
-              <div className="platform-grid">
-                {platformOptions.map(platform => (
-                  <button 
-                    key={platform.id} 
-                    className="platform-card"
-                    onClick={() => selectPlatform(platform.id)}
-                    title={`Optimize for ${platform.label}`}
-                  >
-                    <div className="platform-icon">{platform.icon}</div>
-                    <div className="platform-name">{platform.label}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Step 3: Optimize Content */}
-        {currentStep === 3 && (
-          <div className="content-card">
-            <div className="content-nav">
-              <h2 className="nav-title">Optimize Content</h2>
-              <div className="nav-actions">
-                <button className="nav-button previous" onClick={handleBackToStep2}>
-                  Back to Outline
-                </button>
-              </div>
-            </div>
-            
-            <div className="other-platforms-section">
-              <div className="section-header">
-                <h3>Also optimize for:</h3>
-                {Object.keys(optimizedContentMap).length > 1 && (
-                  <button 
-                    className="action-button secondary small-button"
-                    onClick={() => {
-                      // Combine all optimized contents
-                      const allContent = Object.entries(optimizedContentMap)
-                        .filter(([platform, data]) => data && !data.isLoading && data.content && !data.error)
-                        .map(([platform, data]) => {
-                          const platformInfo = platformOptions.find(p => p.id === platform);
-                          return `## ${platformInfo?.icon || ''} ${platformInfo?.label || platform} Content\n\n${data.content}\n\n`;
-                        })
-                        .join('---\n\n');
-                      
-                      if (allContent) {
-                        copyToClipboard(allContent);
-                      }
-                    }}
-                  >
-                    Copy All
-                  </button>
-                )}
-              </div>
-              <div className="platform-grid">
-                {platformOptions
-                  .filter(platform => platform.id !== currentPlatform)
-                  .map(platform => {
-                    const platformData = optimizedContentMap[platform.id];
-                    const isLoading = platformData?.isLoading;
-                    const isOptimized = platformData && !isLoading && platformData.content && !platformData.error;
-                    const hasError = platformData?.error;
-                    
-                    return (
-                      <button 
-                        key={platform.id}
-                        className={`platform-card ${isOptimized ? 'optimized' : ''} ${isLoading ? 'loading' : ''} ${hasError ? 'error' : ''}`}
-                        onClick={() => optimizeForAdditionalPlatform(platform.id)}
-                        disabled={isLoading}
-                        title={isLoading ? `Optimizing for ${platform.label}...` : 
-                               hasError ? `Error optimizing for ${platform.label}. Click to retry.` :
-                               isOptimized ? `View ${platform.label} content` : 
-                               `Optimize for ${platform.label}`}
-                      >
-                        {isLoading ? (
-                          <div className="loading-spinner dark"></div>
-                        ) : (
-                          <div className="platform-icon">
-                            {hasError ? '⚠️' : platform.icon}
-                          </div>
-                        )}
-                        <div className="platform-name">{platform.label}</div>
-                        <div className="platform-action">
-                          {isLoading ? 'Optimizing...' :
-                           hasError ? 'Retry' :
-                           isOptimized ? 'Optimized' : 'Optimize'}
-                        </div>
-                        {isOptimized && !isLoading && !hasError && (
-                          <div className="optimized-badge" title="Optimized">✓</div>
-                        )}
-                      </button>
-                    )
-                  })}
-              </div>
-            </div>
-            
-            {isPlatformSwitching && (
-              <div className="platform-switching-indicator">
-                <div className="loading-spinner"></div>
-                <p>Optimizing content for {platformOptions.find(p => p.id === currentPlatform)?.label}...</p>
-              </div>
-            )}
-            
-            {!isPlatformSwitching && (
-              <div className="main-editor-container">
-                <div className="main-editor-header">
-                  <h3>
-                    {platformOptions.find(p => p.id === currentPlatform)?.icon} 
-                    {platformOptions.find(p => p.id === currentPlatform)?.label} Content
-                  </h3>
-                  <button 
-                    className="action-button secondary small-button"
-                    onClick={() => copyToClipboard(mainEditorContent)}
-                    disabled={!mainEditorContent}
-                  >
-                    {copySuccess ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                
-                <div className="main-editor-content">
-                  <EditorWithProtection
-                    platform={currentPlatform}
-                    content={mainEditorContent}
-                    onChange={handleMainEditorContentChange}
-                  />
-                </div>
-              </div>
-            )}
-            
-            {/* Section to display results for OTHER platforms */}
-            <div className="optimized-results-section">
-              {platformOptions
-                .filter(platform => platform.id !== currentPlatform && optimizedContentMap[platform.id])
-                .map(platform => {
-                  const platformData = optimizedContentMap[platform.id];
-                  // Only render if content exists and it's not loading
-                  if (!platformData || platformData.isLoading || !platformData.content) return null; 
-                  
-                  // Check if content indicates an error
-                  const isError = platformData.error || 
-                                (typeof platformData.content === 'string' && 
-                                platformData.content.startsWith('Error:'));
-
-                  return (
-                    <div key={platform.id} className={`optimized-result-card ${isError ? 'error' : ''}`}>
-                      <div className="result-header">
-                        <h3>
-                          {isError ? `⚠️ ${platform.label} Error` : `${platform.icon} ${platform.label} Content`}
-                        </h3>
-                        {!isError && (
-                          <button 
-                            className="action-button secondary small-button"
-                            onClick={() => copyToClipboard(platformData.content)}
-                          >
-                            Copy
-                          </button>
-                        )}
-                      </div>
-                      <div className="result-content markdown-preview">
-                        {isError ? (
-                           <p className="error-text">⚠️ {platformData.content.replace('Error: ', '')}</p>
-                        ) : (
-                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                             {platformData.content}
-                           </ReactMarkdown>
-                        )}
-                      </div>
-                      {isError && (
-                        <button 
-                          className="action-button secondary"
-                          onClick={() => optimizeForAdditionalPlatform(platform.id)}
-                        >
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-            </div>
-          </div>
-        )}
-
-        {/* Quick Jump Navigation */}
-        <div className="quick-jump">
-          {quickJumpOpen && (
-            <div className="quick-jump-menu">
-              <button onClick={() => { setCurrentStep(1); setQuickJumpOpen(false); }}>
-                <span>1</span> Describe Content
-              </button>
-              {generatedOutline && (
-                <button onClick={() => { setCurrentStep(2); setQuickJumpOpen(false); }}>
-                  <span>2</span> Edit Outline
-                </button>
-              )}
-              {currentPlatform && (
-                <button onClick={() => { setCurrentStep(3); setQuickJumpOpen(false); }}>
-                  <span>3</span> Optimize Content
-                </button>
-              )}
-              <button onClick={() => { setCurrentView('config'); setQuickJumpOpen(false); }}>
-                <span>⚙️</span> Settings
-              </button>
-              <button onClick={() => { resetWorkflow(); setQuickJumpOpen(false); }}>
-                <span>🔄</span> New Content
-              </button>
-            </div>
-          )}
-          <button 
-            className="quick-jump-button" 
-            onClick={() => setQuickJumpOpen(!quickJumpOpen)}
-            title="Quick Navigation"
-          >
-            {quickJumpOpen ? '×' : '≡'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // Config view render function
-  const renderConfigView = () => {
-    return <ConfigPage />;
-  };
-
-  // Modify the optimizeForPlatform function
-  const optimizeForAdditionalPlatform = async (platformId) => {
-    // Check if the platform content has already been edited by the user
-    const existingData = optimizedContentMap[platformId];
-    const hasBeenEdited = existingData?.edited === true;
-    
-    // If it's been manually edited and has content, just show that content without re-optimizing
-    if (hasBeenEdited && existingData?.content && !existingData.error) {
-      // Just show a message that we're using the edited version
-      setStatusMessage(`Using your edited ${platformOptions.find(p => p.id === platformId)?.label || platformId} content`);
-      setTimeout(() => setStatusMessage(''), 2000);
+  // Handle the rewrite functionality
+  const handleRewrite = useCallback(async () => {
+    if (!rewriteContent || rewriteContent.trim() === '') {
+      setStatusMessage('Please enter content to rewrite');
+      setStatusType('warning');
       return;
     }
     
-    // Update the map to show loading state for this platform
-    setOptimizedContentMap(prev => ({
-      ...prev,
-      [platformId]: { 
-        ...(prev[platformId] || {}), // Keep existing data if any
-        content: prev[platformId]?.content || '', 
-        isLoading: true,
-        error: false
-      }
-    }));
-
+    setIsRewriting(true);
     try {
       // Get the instruction from ConfigPage
-      const configPageInstruction = getOptimizeInstruction();
+      const configPageInstruction = getRewriteInstruction();
       
-      // Call the API to optimize the content for this platform
-      const optimizedContent = await OpenAIService.optimizeForPlatform(
-        generatedOutline, // Use the outline as the base content to optimize
-        platformId,
-        contentType,
+      // Use OpenAI service to rewrite
+      const rewritten = await OpenAIService.rewriteContent(
+        rewriteContent,
+        rewriteStyle,
         configPageInstruction
       );
-
-      // Save optimized content to Supabase
-      /* try {
-        await SupabaseService.saveGeneratedContent({
-          contentType: 'optimized',
-          content: optimizedContent,
-          platform: platformId,
-          description: contentDescription,
-          style: null,
-          title: `Optimized for ${platformId}`
-        });
-        console.log(`Optimized content for ${platformId} saved to Supabase`);
-      } catch (saveError) {
-        console.error(`Error saving optimized content for ${platformId} to Supabase:`, saveError);
-      } */
-
-      // Update the map with the optimized content
-      setOptimizedContentMap(prev => ({
-        ...prev,
-        [platformId]: {
-          ...(prev[platformId] || {}),
-          content: optimizedContent,
-          isLoading: false,
-          error: false,
-          edited: false, // Reset edited flag
-          timestamp: new Date().toISOString() // Add timestamp for cache management
-        }
-      }));
-
-      // Show success message
-      setStatusMessage(`Content optimized for ${platformOptions.find(p => p.id === platformId)?.label || platformId}!`);
-      setTimeout(() => setStatusMessage(''), 3000);
+      
+      // Set the rewritten content
+      setRewriteResult(rewritten);
+      setStatusMessage('Content rewritten successfully');
+      setStatusType('success');
     } catch (error) {
-      console.error(`Error optimizing for ${platformId}:`, error);
-      // Update the map with the error
-      setOptimizedContentMap(prev => ({
-        ...prev,
-        [platformId]: {
-          ...(prev[platformId] || {}),
-          content: `Error: ${error.message || 'Failed to optimize content'}`,
-          isLoading: false,
-          error: true,
-          edited: false // Reset edited flag
-        }
-      }));
-
-      // Show error message
-      setApiKeyError(`Failed to optimize for ${platformId}. ${error.message || 'API error'}`);
-      setTimeout(() => setApiKeyError(''), 5000);
+      console.error("Error rewriting content:", error);
+      setApiKeyError('Error connecting to OpenAI API. Please check your configuration.');
+      setStatusMessage('Failed to rewrite content');
+      setStatusType('error');
+    } finally {
+      setIsRewriting(false);
     }
-  };
+  }, [rewriteContent, rewriteStyle]);
 
-  // Create a custom editor component with unmount protection
-  const EditorWithProtection = ({ platform, content, onChange }) => {
-    // Save content on unmount
-    useEffect(() => {
-      // Return cleanup function that runs when component unmounts
-      return () => {
-        if (content && platform) {
-          console.log(`Saving content for ${platform} on editor unmount`);
-          // Save content to optimizedContentMap when component unmounts
-          setOptimizedContentMap(prev => ({
-            ...prev,
-            [platform]: {
-              ...(prev[platform] || {}),
-              content: content,
-              isLoading: false,
-              edited: true
-            }
-          }));
-        }
-      };
-    }, [platform, content]);
-
-    return (
-      <Editor 
-        key={`editor-${platform}`}
-        initialContent={content}
-        onChange={onChange}
-        platform={platform}
-        placeholder={`Loading content optimized for ${platform}...`}
-      />
-    );
-  };
-
-  // Rewrite view render function
-  const renderRewriteView = () => {
-    const rewriteStyles = [
-      { id: 'professional', label: 'Professional', icon: '👔' },
-      { id: 'casual', label: 'Casual', icon: '😊' },
-      { id: 'creative', label: 'Creative', icon: '🎨' },
-      { id: 'formal', label: 'Formal', icon: '📜' },
-      { id: 'simple', label: 'Simple', icon: '🔤' },
-    ];
-    
-    const handleRewrite = async () => {
-      if (!rewriteContent) return;
-      
-      setIsRewriting(true);
-      setRewriteResult('');
-      
-      try {
-        // Get the instruction from ConfigPage
-        const configPageInstruction = getRewriteInstruction();
-        
-        // Use our rewriteContent endpoint
-        const rewritten = await OpenAIService.rewriteContent(
-          rewriteContent,
-          rewriteStyle,
-          configPageInstruction
+  // Render main content based on current view
+  const renderContent = () => {
+    switch (currentView) {
+      case 'home':
+        return (
+          <HomeView 
+            currentStep={currentStep}
+            contentDescription={contentDescription}
+            setContentDescription={setContentDescription}
+            contentType={contentType}
+            setContentType={setContentType}
+            contentPresets={contentPresets}
+            handleContentPresetClick={handleContentPresetClick}
+            generateAIOutline={generateAIOutline}
+            isGenerating={isGenerating}
+            generatedOutline={generatedOutline}
+            platformOptions={platformOptions}
+            selectPlatform={selectPlatform}
+            currentPlatform={currentPlatform}
+            mainEditorContent={mainEditorContent}
+            handleMainEditorContentChange={handleMainEditorContentChange}
+            optimizedContentMap={optimizedContentMap}
+            isPlatformSwitching={isPlatformSwitching}
+            handleBackToStep1={handleBackToStep1}
+            handleBackToStep2={handleBackToStep2}
+            copyToClipboard={copyToClipboard}
+            apiKeyError={apiKeyError}
+          />
         );
-        
-        // Save rewritten content to Supabase
-        /* try {
-          await SupabaseService.saveGeneratedContent({
-            contentType: 'rewritten',
-            content: rewritten,
-            platform: null,
-            style: rewriteStyle,
-            description: rewriteContent, 
-            title: `Rewritten in ${rewriteStyle} style`
-          });
-          console.log('Rewritten content saved to Supabase');
-        } catch (saveError) {
-          console.error('Error saving rewritten content to Supabase:', saveError);
-        } */
-        
-        setRewriteResult(rewritten);
-        setStatusMessage("Content successfully rewritten!");
-      } catch (error) {
-        console.error("Error rewriting content:", error);
-        setApiKeyError(`Failed to rewrite content. ${error.message || 'API error'}`);
-      } finally {
-        setIsRewriting(false);
-      }
-    };
-    
-    return (
-      <div className="rewrite-view">
-        {apiKeyError && (
-          <div className="api-error-message">
-            <p>⚠️ {apiKeyError}</p>
-          </div>
-        )}
-        
-        {statusMessage && (
-          <div className="status-message">
-            {statusMessage}
-          </div>
-        )}
-        
-        <div className="content-card">
-          <div className="content-nav">
-            <h2 className="nav-title">Content Rewriter</h2>
-          </div>
-          
-          <div className="rewrite-container">
-            <h3>Input Content</h3>
-            <textarea
-              className="content-textarea"
-              value={rewriteContent}
-              onChange={(e) => setRewriteContent(e.target.value)}
-              placeholder="Paste content you want to rewrite..."
-              rows={8}
-            />
-            
-            <h3>Rewrite Style</h3>
-            <div className="rewrite-options">
-              {rewriteStyles.map(style => (
-                <button
-                  key={style.id}
-                  className={`rewrite-option ${rewriteStyle === style.id ? 'active' : ''}`}
-                  onClick={() => setRewriteStyle(style.id)}
-                >
-                  <span>{style.icon}</span> {style.label}
-                </button>
-              ))}
-            </div>
-            
-            <div className="action-container">
-              <button 
-                className="action-button primary" 
-                onClick={handleRewrite}
-                disabled={!rewriteContent || isRewriting}
-              >
-                {isRewriting ? (
-                  <>
-                    <div className="loading-spinner"></div>
-                    Rewriting...
-                  </>
-                ) : 'Rewrite Content'}
-              </button>
-            </div>
-            
-            {rewriteResult && (
-              <div className="rewrite-result">
-                <div className="result-header">
-                  <h3>Rewritten Content ({rewriteStyles.find(s => s.id === rewriteStyle)?.label})</h3>
+      case 'rewrite':
+        return (
+          <div className="rewrite-view">
+            <div className="content-card">
+              <h2>Rewrite Content</h2>
+              <div className="rewrite-container">
+                <div className="content-description">
+                  <label htmlFor="rewrite-content">Original Content:</label>
+                  <textarea
+                    id="rewrite-content"
+                    placeholder="Enter content you want to rewrite..."
+                    value={rewriteContent}
+                    onChange={(e) => setRewriteContent(e.target.value)}
+                    rows={8}
+                  />
+                </div>
+                
+                <div className="rewrite-options">
+                  <label>Rewrite Style:</label>
+                  <div className="option-buttons">
+                    {['professional', 'casual', 'creative', 'simple', 'academic'].map((style) => (
+                      <button
+                        key={style}
+                        className={`rewrite-option ${rewriteStyle === style ? 'active' : ''}`}
+                        onClick={() => setRewriteStyle(style)}
+                      >
+                        {style.charAt(0).toUpperCase() + style.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="action-container">
                   <button 
-                    className="action-button secondary small-button"
-                    onClick={() => copyToClipboard(rewriteResult)}
+                    className="action-button primary"
+                    onClick={handleRewrite}
+                    disabled={!rewriteContent || isRewriting}
                   >
-                    {copySuccess ? 'Copied!' : 'Copy'}
+                    {isRewriting ? 'Rewriting...' : 'Rewrite Content'}
+                    {isRewriting && <span className="loading-spinner"></span>}
                   </button>
                 </div>
-                <div className="result-content markdown-preview">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {rewriteResult}
-                  </ReactMarkdown>
-                </div>
+                
+                {rewriteResult && (
+                  <div className="rewrite-result">
+                    <h3>Rewritten Content</h3>
+                    <div className="content-preview">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {rewriteResult}
+                      </ReactMarkdown>
+                    </div>
+                    <div className="action-container">
+                      <button 
+                        className="action-button secondary"
+                        onClick={() => copyToClipboard(rewriteResult)}
+                      >
+                        Copy to Clipboard
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Add a render function for Reply view
-  const renderReplyView = () => {
-    return <ReplyView />;
-  };
-
-  // Add a render function for History view
-  const renderHistoryView = () => {
-    return <HistoryView />;
-  };
-
-  // Get content for the current view
-  const renderContent = () => {
-    switch(currentView) {
-      case 'home':
-        return renderHomeView();
-      case 'config':
-        return renderConfigView();
-      case 'rewrite':
-        return renderRewriteView();
+        );
       case 'reply':
-        return renderReplyView();
+        return <ReplyView />;
       case 'history':
-        return renderHistoryView();
+        return <HistoryView />;
+      case 'config':
+        return <ConfigPage />;
       default:
-        return renderHomeView();
+        return <div>Select a view from the sidebar</div>;
     }
   };
 
   return (
     <div className={`App ${theme}`}>
-      {renderSidebar()}
+      <Sidebar 
+        sidebarOpen={sidebarOpen}
+        toggleSidebar={toggleSidebar}
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        resetWorkflow={resetWorkflow}
+      />
       
-      <div className={`app-main ${sidebarOpen ? 'sidebar-visible' : 'sidebar-hidden'}`}>
+      <div className={`app-main ${!sidebarOpen ? 'sidebar-hidden' : ''}`}>
+        <div className="main-header">
+          <ThemeSwitcher />
+        </div>
+        
         <div className="content-container">
           {renderContent()}
         </div>
       </div>
+      
+      <StatusMessage 
+        message={statusMessage}
+        type={statusType}
+        onClose={() => setStatusMessage('')}
+      />
     </div>
   );
 }

@@ -1,0 +1,79 @@
+.status-message {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 16px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  max-width: 380px;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  border-left: 4px solid var(--primary-color);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.status-message.visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.status-message.success {
+  border-left-color: var(--success-color);
+}
+
+.status-message.success .status-icon {
+  color: var(--success-color);
+}
+
+.status-message.error {
+  border-left-color: var(--error-color);
+}
+
+.status-message.error .status-icon {
+  color: var(--error-color);
+}
+
+.status-message.warning {
+  border-left-color: var(--warning-color);
+}
+
+.status-message.warning .status-icon {
+  color: var(--warning-color);
+}
+
+.status-message.info {
+  border-left-color: var(--primary-color);
+}
+
+.status-message.info .status-icon {
+  color: var(--primary-color);
+}
+
+.status-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-text {
+  font-size: 14px;
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .status-message {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+  }
+} 

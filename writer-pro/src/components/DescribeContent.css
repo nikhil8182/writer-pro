@@ -1,0 +1,186 @@
+/* DescribeContent.css - Styles for the content description section */
+
+.content-description {
+  margin-bottom: 25px;
+}
+
+.content-description label {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.content-description textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--input-shadow);
+  transition: all 0.3s ease;
+  resize: vertical;
+  outline: none;
+}
+
+.content-description textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(89, 81, 216, 0.1);
+  background-color: var(--bg-secondary);
+}
+
+.content-description textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+/* Dark theme adjustment */
+.dark .content-description textarea {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.dark .content-description textarea:focus {
+  background-color: var(--bg-secondary);
+  border-color: var(--primary-color-light);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .content-description textarea {
+    min-height: 120px;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content-description textarea {
+    min-height: 100px;
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Character count indicator with visual feedback */
+.content-description .char-count {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+/* Character count styling based on length */
+.content-description .char-count.too-short {
+  color: var(--warning-color);
+}
+
+.content-description .char-count.ok-length {
+  color: var(--text-secondary);
+}
+
+.content-description .char-count.good-length {
+  color: var(--success-color);
+}
+
+.content-description .char-count.lengthy {
+  color: var(--primary-color);
+}
+
+/* Fade-in animation for character count */
+.content-description .char-count {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Growing text area animation for better UX */
+.content-description textarea {
+  transition: min-height 0.2s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.content-description textarea:focus {
+  min-height: 180px; /* Expand slightly when focused */
+}
+
+/* Improved preset buttons */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.preset-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 10px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--input-shadow);
+}
+
+.preset-button .preset-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  transition: transform 0.3s ease;
+}
+
+.preset-button .preset-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.preset-button:hover {
+  background-color: var(--bg-secondary);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary-color-light);
+}
+
+.preset-button:hover .preset-icon {
+  transform: scale(1.1);
+}
+
+.preset-button.active {
+  background-color: var(--primary-color-light-10);
+  border-color: var(--primary-color);
+  box-shadow: 0 5px 15px rgba(89, 81, 216, 0.15);
+}
+
+.preset-button.active .preset-label {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* Dark theme adjustments for preset buttons */
+.dark .preset-button {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.dark .preset-button:hover {
+  background-color: rgba(99, 102, 241, 0.05);
+  border-color: var(--primary-color-light);
+}
+
+.dark .preset-button.active {
+  background-color: rgba(99, 102, 241, 0.1);
+} 
