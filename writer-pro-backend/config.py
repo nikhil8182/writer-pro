@@ -6,7 +6,7 @@ load_dotenv()
 
 # CORS Configuration
 # Read origins from environment variable, split by comma, strip whitespace
-cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://writer-pro.onrender.com")
 CORS_ORIGINS = [origin.strip() for origin in cors_origins_str.split(",")]
 
 # OpenAI API Configuration
