@@ -5,11 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # CORS Configuration
-CORS_ORIGINS = [
-    "http://localhost:3000",  # Default React dev server port
-    "http://127.0.0.1:3000",
-    # Add any other origins if needed
-]
+# Read origins from environment variable, split by comma, strip whitespace
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+CORS_ORIGINS = [origin.strip() for origin in cors_origins_str.split(",")]
 
 # OpenAI API Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
